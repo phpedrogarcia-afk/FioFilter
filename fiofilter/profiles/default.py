@@ -1,25 +1,6 @@
-"""
-fiofilter.profiles.default — Default profile.
-
-Implements the core evidence taxonomy disposition table:
-
-| Evidence Class  | EXPLORE    | BUILD      | PROVE |
-|----------------|------------|------------|-------|
-| NOISE          | T01        | T01        | T01   |
-| DISCOVERY      | T01        | T01        | RAW   |
-| PROGRESS       | T01        | T01        | RAW   |
-| SUCCESS_SUMMARY| T01        | T01        | RAW   |
-| DIAGNOSTIC     | T01        | RAW        | RAW   |
-| FAILURE        | RAW        | RAW        | RAW   |
-| CANONICAL_STATE| RAW        | RAW        | RAW   |
-| MACHINE_DATA   | lossless*  | lossless*  | RAW   |
-| AUTHORITY      | RAW        | RAW        | RAW   |
-| SECURITY       | RAW        | RAW        | RAW   |
-| BENCHMARK      | RAW        | RAW        | RAW   |
-| UNKNOWN        | RAW        | RAW        | RAW   |
-
-* lossless: only transforms in LOSSLESS_TRANSFORM_IDS (I8)
-  In V0, no lossless transforms exist → MACHINE_DATA defaults to RAW.
+"""Canonical runtime V0 policy: NOISE/T01 in every mode; PROGRESS/T01
+in EXPLORE/BUILD. Other classes await an approved consumer contract.
+This Python module is the sole core policy source (M02-D002).
 """
 
 from __future__ import annotations
@@ -56,22 +37,9 @@ class DefaultProfile(BaseProfile):
                 return _RAW_ONLY
             return _LOSSLESS_POLICY  # RAW in V0 until T04 is implemented
 
-        # DIAGNOSTIC: transform only in EXPLORE
-        if evidence_class == EvidenceClass.DIAGNOSTIC:
-            if mode == Mode.EXPLORE:
-                return _TRANSFORM_T01
-            return _RAW_ONLY
-
-        # DISCOVERY, PROGRESS, SUCCESS_SUMMARY, NOISE: transform in EXPLORE/BUILD
-        if evidence_class in (
-            EvidenceClass.NOISE,
-            EvidenceClass.DISCOVERY,
-            EvidenceClass.PROGRESS,
-            EvidenceClass.SUCCESS_SUMMARY,
-        ):
-            if mode == Mode.PROVE:
-                return _RAW_ONLY
+        # T01 has no approved diagnostic/discovery/success consumer contract.
+        if evidence_class == EvidenceClass.NOISE:
+            return _TRANSFORM_T01  # Includes PROVE; modes never imply global RAW.
+        if evidence_class == EvidenceClass.PROGRESS and mode != Mode.PROVE:
             return _TRANSFORM_T01
-
-        # Fallback (should not be reached with complete taxonomy)
         return _RAW_ONLY

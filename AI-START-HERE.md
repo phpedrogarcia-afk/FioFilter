@@ -1,116 +1,52 @@
-# AI-START-HERE.md — FioFilter Orientation for AI Agents
+# FioFilter orientation
 
-## You are working on FioFilter
+V0: an implemented Python evidence engine and deterministic T01 laboratory.
+M01 created code, not just skeletons. M02 audits and hardens that foundation.
+No Codex integration, MCP, hooks, proxy, GUI, LLM or automatic learning exists.
 
-FioFilter is an evidence-aware context reduction layer for coding agents.
-It is NOT a generic compressor, NOT RTK, NOT CCA, NOT context-compress.
+## Start here
 
-**Read this file first, every session.**
+1. Inspect branch, HEAD, origin/main, status, recent commits and `AGENTS.md`.
+2. Read `docs/DECISIONS.md` including M02 supersessions, then the evidence contract.
+3. Run `python -m pytest tests/ -v` before code changes.
+4. Work on a mission branch; publish reviewable state through GitHub.
 
----
+## What exists
 
-## Current Stage: V0 — Foundation
+- Twelve evidence classes and deterministic full-input signal detection.
+- Core policy in `fiofilter/profiles/default.py`; Python overlays can only restrict it.
+- Stateless per-call EXPLORE/BUILD/PROVE. NOISE remains eligible in PROVE.
+- Orthogonal `Sensitivity` and `Persistence` enums. Default EPHEMERAL recovery;
+  sensitive results are RAW/DO_NOT_PERSIST without archive or persistent log.
+- Explicit SHA-256 disk store with no-clobber publication, integrity checking and
+  content-only metadata. No index or automatic retention/deletion engine.
+- T01 v2 only: exact consecutive-line counts/boundaries and a strict decoder.
+- In-memory audit on every valid byte result; explicit optional JSONL audit.
+- Exact byte metrics, labeled byte-based token estimates, optional externally
+  supplied model tokens/turns/retrieval/recovery observations.
+- Synthetic tests and minimal Windows/Linux CI. See `docs/M02-AUDIT.md` for evidence.
 
-V0 is an **evidence engine and deterministic filter laboratory**.
+## What does not exist
 
-V0 deliverables:
-- [x] Repository foundation (M01)
-- [x] Donor autopsy (M01)
-- [x] Evidence contract — invariants I1–I16 (M01)
-- [x] Evidence taxonomy (M01)
-- [x] Decision engine specification (M01)
-- [x] RAW store specification (M01)
-- [x] Package skeleton (M01)
-- [x] Test skeleton (M01)
-- [ ] Core implementation (M02)
-- [ ] Transform implementation (M02)
-- [ ] Corpus regression (M02+)
-- [ ] Codex A/B validation (M03+)
+T02 template folding, T03 PASS aggregation, T04 JSON minification, T05 delta,
+batch execution, original FioOS corpus import/replay, corrective-retrieval
+prediction and whole-mission A/B measurement remain deferred. An API processing
+already captured output cannot recover bytes truncated by its upstream caller.
 
----
+## Decisions and current limits
 
-## What Makes FioFilter Different From Donors
+Read `docs/ARCHITECTURE.md`, `docs/EVIDENCE-CONTRACT.md`, `docs/TEST-STRATEGY.md`,
+`docs/M02-AUDIT.md` and `docs/SAFE-AGGRESSIVE-FRONTIER.md`.
+`docs/DECISIONS.md` preserves D001–D013 and adds M02 decisions with explicit
+supersessions. `docs/DONOR-AUTOPSY.md` is historical M01 evidence, not a fresh
+upstream audit or an executable specification of current FioFilter.
 
-| Property | RTK | CCA | context-compress | FioFilter |
-|---|---|---|---|---|
-| Evidence taxonomy | No | Partial (tiers) | No | Yes — 12 classes |
-| Inline-fact protection | No | 70.1% (P14 corpus) | No | 100% required |
-| RAW store | No (SQLite recall only on failure) | Yes (`raw_ref`) | Yes (FTS5 index) | Yes (SHA-256, immutable) |
-| LLM in pipeline | No | No | Yes (auto mode) | No (V0) |
-| Whole-mission economics | `rtk gain` | Limited | `stats` tool | First-class metric |
-| Language | Rust | Node.js | TypeScript | Python |
-| Fail-open | Partial | Yes | Unknown | Yes (hard rule) |
+Detection cannot prove absence of arbitrary secrets/PII. Caller-assessed
+NON_SENSITIVE plus explicit PERSIST is a storage decision, never permission to
+compress protected evidence. Do not describe RAW recovery as guaranteed for
+DO_NOT_PERSIST or after a returned ephemeral reference has been discarded.
 
----
-
-## Historical Experiments (Non-Negotiable Evidence)
-
-These experiments define FioFilter. Do not replace them with donor marketing claims.
-
-- **P3**: −27.03% tokens via static-context optimization, quality preserved
-- **P11**: −49.93% tokens via turn reduction (6 turns → 0); this is the biggest lever
-- **P13**: Batching strong but ~40 KB output truncated; two smaller bundles (~25K + ~33K) were complete
-- **RTK rejection**: Destroyed diagnostic/directory/JSON/canonical evidence
-- **CCA rejection**: Despite RAW recovery, 96/137 inline facts preserved (70.1%) — insufficient
-
----
-
-## The Six Questions
-
-Before any transform decision, the engine must answer:
-
-1. What epistemic/evidence role does this output play?
-2. Which facts must remain visible inline?
-3. Is this transformation deterministic and reversible?
-4. Does the transformed representation reduce context?
-5. Could transformation cause another model turn or corrective retrieval?
-6. Is RAW cheaper at whole-mission level?
-
----
-
-## The Hard Defaults
-
-| Situation | Default |
-|---|---|
-| Evidence class UNKNOWN | RAW |
-| Evidence class AUTHORITY or SECURITY | RAW (all modes) |
-| Evidence class FAILURE | RAW |
-| Validation fails | RAW |
-| Transform exception | RAW |
-| Transform expands output (I9) | RAW |
-| Inline-required fact missing from output | RAW |
-
----
-
-## Document Map
-
-| Document | Contents |
-|---|---|
-| `README.md` | Project overview, historical evidence, architecture sketch |
-| `AGENTS.md` | Agent operating instructions |
-| `AI-START-HERE.md` | This file — orientation |
-| `docs/ARCHITECTURE.md` | Full system architecture |
-| `docs/EVIDENCE-CONTRACT.md` | Invariants I1–I16 |
-| `docs/DONOR-AUTOPSY.md` | RTK / CCA / context-compress bounded analysis |
-| `docs/DECISIONS.md` | Decision ledger D001–D012 |
-| `docs/TEST-STRATEGY.md` | Test families and oracle definitions |
-| `fiofilter/types.py` | Core types: EvidenceClass, Mode, Disposition, etc. |
-| `fiofilter/invariants.py` | I1–I16 enforcement |
-| `fiofilter/classifier.py` | Deterministic evidence classifier |
-| `fiofilter/engine.py` | Decision pipeline |
-| `fiofilter/raw_store.py` | Immutable RAW store |
-| `fiofilter/metrics.py` | Per-result and mission economics |
-| `profiles/` | YAML policy overlays |
-| `tests/` | Test families |
-
----
-
-## Before Implementing Anything
-
-1. Confirm the task is in V0 scope (see M01 spec section 13 and 18)
-2. Check DECISIONS.md
-3. Check EVIDENCE-CONTRACT.md
-4. Write the test first
-5. Implement minimal version
-6. Run full test suite
-7. Record any new decision
+Current tests establish behavior in their corpus, not universal classification
+accuracy. Local reduction is not measured whole-mission savings. Future
+aggressive reduction candidates are recorded explicitly; none is authorized by
+its inclusion in that list. M02 ends before choosing M03.

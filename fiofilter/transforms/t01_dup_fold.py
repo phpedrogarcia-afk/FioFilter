@@ -1,125 +1,95 @@
+"""T01 v2 mechanical encoding. Engine eligibility is NOISE/PROGRESS only.
+
+Literal reserved markers reject transformation. Consecutive byte-identical
+LF/CRLF lines fold to one unchanged source line followed by a distinct marker.
+Count includes the first line. First/last are 1-based original line positions.
+Decoded visible bytes must equal RAW; RAW store recovery is a separate oracle.
 """
-fiofilter.transforms.t01_dup_fold — T01: Exact duplicate-line folding.
-
-Specification:
-  PRECONDITIONS:
-    - Content is UTF-8 text (not binary).
-    - Evidence class is NOISE, DISCOVERY, or PROGRESS.
-    - Consecutive duplicate lines must exist for transform to fire.
-
-  PROTECTED_FACTS:
-    - First occurrence of any line is always preserved in full.
-    - Fold markers include the exact duplicate count.
-    - No line content is silently deleted.
-
-  OUTPUT_CONTRACT:
-    For runs of N identical consecutive lines (N >= 2):
-      <line content> [×N duplicates folded]
-    For runs of N >= FOLD_THRESHOLD identical consecutive lines:
-      <line content> [×N duplicates folded]
-    Non-duplicate lines pass through unchanged.
-
-  RAW_RECOVERY:
-    The raw content is stored in the RAW store before this transform runs.
-    SHA-256 verified recovery is always available (I3).
-
-  FAIL_OPEN_BEHAVIOR:
-    Any exception during apply() propagates to the engine.
-    The engine catches it and returns RAW.
-    Transforms do not suppress their own exceptions.
-
-  TEST_ORACLE:
-    1. apply(x) == apply(x)  [determinism]
-    2. len(apply(x)) < len(x) when duplicates exist, else None returned
-    3. apply(x) with no duplicates → returns None (no savings)
-    4. Fold marker contains correct count
-    5. First occurrence of folded line is preserved
-"""
-
-from __future__ import annotations
-
+import re
 from typing import Optional
-
 from fiofilter.transforms.base import Transform
 
-# Minimum consecutive duplicate count to trigger folding.
-# Single duplicates (N=2) are folded by default.
-FOLD_THRESHOLD: int = 2
+FOLD_THRESHOLD = 2
+RESERVED = b'[[FIOFILTER:'
+_HEADER = b'[[FIOFILTER:T01:v2]]\n'
+_MARKER = re.compile(rb'\[\[FIOFILTER:T01 count=([1-9][0-9]*) first=([1-9][0-9]*) last=([1-9][0-9]*)\]\]\n')
 
-# Fold marker template. {count} is replaced with the duplicate count.
-# The marker must be visible and auditable.
-_FOLD_MARKER = " [×{count} duplicates folded]"
+
+def _lines(content):
+    # Split only LF; unlike str.splitlines, NEL/U+2028 are literal source text.
+    return content.splitlines(keepends=True)
 
 
 class DuplicateLineFold(Transform):
-    """
-    T01: Exact duplicate-line folding.
-
-    Folds consecutive runs of identical lines into:
-        <first occurrence> [×N duplicates folded]
-
-    Only triggers when N >= FOLD_THRESHOLD.
-    Non-duplicate or insufficient-duplicate content returns None (→ RAW).
-    """
+    @property
+    def transform_id(self):
+        return 'T01'
 
     @property
-    def transform_id(self) -> str:
-        return "T01"
-
-    @property
-    def description(self) -> str:
-        return "Exact duplicate consecutive-line folding"
+    def description(self):
+        return 'Exact consecutive-line folding with versioned count and boundaries'
 
     def apply(self, content: bytes) -> Optional[bytes]:
-        """
-        Apply duplicate-line folding.
-
-        Returns:
-            Folded bytes if content was reduced.
-            None if no folding occurred or output would not be smaller.
-        """
-        # Attempt UTF-8 decode. Binary content → None (let engine return RAW).
         try:
-            text = content.decode("utf-8")
-        except (UnicodeDecodeError, ValueError):
+            text = content.decode('utf-8')
+        except (UnicodeError, AttributeError):
             return None
-
-        lines = text.splitlines(keepends=True)
-        if len(lines) < FOLD_THRESHOLD:
+        if (RESERVED in content or b'\x00' in content
+                or any(ord(c) < 32 and c not in '\t\n\r' for c in text)
+                or b'\r' in content.replace(b'\r\n', b'')):
             return None
-
-        output_lines = []
+        lines = _lines(content)
+        output = [_HEADER]
+        folded = False
         i = 0
-        folded_any = False
-
         while i < len(lines):
-            current_line = lines[i]
-            # Count consecutive identical lines
             j = i + 1
-            while j < len(lines) and lines[j] == current_line:
+            while j < len(lines) and lines[j] == lines[i]:
                 j += 1
-
             count = j - i
+            output.append(lines[i])
             if count >= FOLD_THRESHOLD:
-                # Keep first occurrence, add fold marker
-                stripped = current_line.rstrip("\r\n")
-                newline = current_line[len(stripped):]
-                marker = _FOLD_MARKER.format(count=count - 1)
-                output_lines.append(stripped + marker + newline)
-                folded_any = True
-            else:
-                # No folding — pass through all occurrences
-                output_lines.extend(lines[i:j])
-
+                output.append(f'[[FIOFILTER:T01 count={count} first={i+1} last={j}]]\n'.encode())
+                folded = True
             i = j
-
-        if not folded_any:
-            return None  # Nothing was folded → engine returns RAW (I9)
-
-        result_bytes = "".join(output_lines).encode("utf-8")
-
-        # I9: Never expand — if result is not smaller, return None
-        if len(result_bytes) >= len(content):
+        result = b''.join(output)
+        if not folded or len(result) >= len(content):
             return None
+        return result
 
-        return result_bytes
+
+def decode_visible(content: bytes, max_output_bytes: int = 16 * 1024 * 1024) -> bytes:
+    """Strict, bounded decoder. Does not read the RAW store.
+
+    Engine supplies the original byte length as bound; standalone callers may
+    override the default explicitly for larger known data.
+    """
+    if not content.startswith(_HEADER):
+        raise ValueError('Missing T01 v2 header')
+    out = []
+    size = 0
+    line_number = 0
+    previous = None
+    for line in _lines(content[len(_HEADER):]):
+        if RESERVED in line:
+            match = _MARKER.fullmatch(line)
+            if not match or previous is None:
+                raise ValueError('Invalid or ambiguous T01 marker')
+            count, first, last = map(int, match.groups())
+            if count < 2 or first != line_number or last != first + count - 1:
+                raise ValueError('Invalid T01 count/boundaries')
+            extra = len(previous) * (count - 1)
+            if size + extra > max_output_bytes:
+                raise ValueError('T01 recovery bound exceeded')
+            out.append(previous * (count - 1))
+            size += extra
+            line_number = last
+            previous = None
+        else:
+            size += len(line)
+            if size > max_output_bytes:
+                raise ValueError('T01 recovery bound exceeded')
+            out.append(line)
+            line_number += 1
+            previous = line
+    return b''.join(out)

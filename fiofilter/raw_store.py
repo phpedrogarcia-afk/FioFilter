@@ -1,243 +1,143 @@
+"""Explicit local content-addressed storage, plus reference-owned ephemeral recovery.
+
+Blobs and content-only metadata use unique same-directory temporary files and
+atomic no-clobber hard-link publication. No index and no per-command sidecars.
+A missing sidecar does not invalidate byte recovery; malformed metadata is an
+explicit error. This is integrity checking, not protection against a hostile OS.
 """
-fiofilter.raw_store — Immutable, content-addressable local RAW store.
-
-Design (per ARCHITECTURE.md):
-  - SHA-256 content-addressable
-  - Atomic writes (write to .tmp, rename — same volume)
-  - Metadata sidecar separate from content blob
-  - Append-only index.jsonl
-  - No network, no external DB
-  - No deletion in V0
-  - Windows-safe paths
-  - Default location: ~/.fiofilter/raw/ (outside repo)
-  - Configurable via FIOFILTER_RAW_STORE env var
-
-Layout:
-  {root}/
-    objects/
-      {sha256[0:2]}/
-        {sha256}          ← immutable content blob
-    meta/
-      {sha256[0:2]}/
-        {sha256}.json     ← metadata sidecar
-    index.jsonl           ← append-only reference log
-
-Invariants enforced:
-  I1: Content blobs are never modified after write.
-  I3: sha256(read(ref)) == ref.sha256 (verified on read if check=True).
-"""
-
-from __future__ import annotations
-
 import hashlib
 import json
 import os
-import pathlib
-import time
-from dataclasses import asdict, dataclass
+from pathlib import Path
+import re
+import tempfile
 from typing import Optional
 
+from fiofilter.sensitivity import contains_sensitive_material
 from fiofilter.types import EvidenceClass, Mode, RawRef
-
-# Default raw store location (outside repo, per architecture)
-_DEFAULT_RAW_STORE = pathlib.Path.home() / ".fiofilter" / "raw"
-
-# Environment variable override
-_ENV_VAR = "FIOFILTER_RAW_STORE"
-
-
-def _get_root() -> pathlib.Path:
-    """Resolve the RAW store root directory."""
-    env_val = os.environ.get(_ENV_VAR)
-    if env_val:
-        return pathlib.Path(env_val)
-    return _DEFAULT_RAW_STORE
-
-
-@dataclass
-class RawMeta:
-    """Metadata sidecar for a RAW store entry."""
-
-    raw_sha256: str
-    stored_at_utc: str
-    source: str
-    command: Optional[str]
-    evidence_class: str
-    mode: str
-    byte_length: int
-    session_id: Optional[str] = None
-    inline_required_facts: Optional[list] = None
 
 
 class RawStore:
-    """
-    Immutable, content-addressable local RAW store.
+    def __init__(self, root: Optional[Path] = None):
+        selected = root if root is not None else os.environ.get('FIOFILTER_RAW_STORE')
+        self.root = (Path(selected) if selected else Path.home() / '.fiofilter' / 'raw').absolute()
+        self._objects_dir = self.root / 'objects'
+        self._meta_dir = self.root / 'meta'
 
-    Usage:
-        store = RawStore()                    # uses default/env location
-        store = RawStore(root="/custom/path") # override location
-        ref = store.write(content_bytes, ...)
-        recovered = store.read(ref)
-        assert recovered == content_bytes
-    """
+    @staticmethod
+    def _validate_sha(sha):
+        if not isinstance(sha, str) or re.fullmatch('[0-9a-f]{64}', sha) is None:
+            raise ValueError('Invalid SHA-256 address')
 
-    def __init__(self, root: Optional[pathlib.Path] = None) -> None:
-        if root is None:
-            root = _get_root()
-        self.root = pathlib.Path(root)
-        self._objects_dir = self.root / "objects"
-        self._meta_dir = self.root / "meta"
-        self._index_path = self.root / "index.jsonl"
+    def _object_path(self, sha):
+        self._validate_sha(sha)
+        return self._objects_dir / sha[:2] / sha
 
-    def _ensure_dirs(self) -> None:
-        """Create required directory structure if not present."""
-        self._objects_dir.mkdir(parents=True, exist_ok=True)
-        self._meta_dir.mkdir(parents=True, exist_ok=True)
-        self.root.mkdir(parents=True, exist_ok=True)
+    def _meta_path(self, sha):
+        self._validate_sha(sha)
+        return self._meta_dir / sha[:2] / (sha + '.json')
 
-    def _object_path(self, sha256: str) -> pathlib.Path:
-        prefix = sha256[:2]
-        return self._objects_dir / prefix / sha256
+    @staticmethod
+    def ephemeral(content: bytes) -> RawRef:
+        if not isinstance(content, bytes):
+            raise TypeError('RAW content must be bytes')
+        return RawRef(hashlib.sha256(content).hexdigest(), '', content)
 
-    def _meta_path(self, sha256: str) -> pathlib.Path:
-        prefix = sha256[:2]
-        return self._meta_dir / prefix / f"{sha256}.json"
+    @staticmethod
+    def _publish(path: Path, content: bytes):
+        """No overwrite on POSIX or Windows/NTFS; unsupported FS raises safely.
 
-    def write(
-        self,
-        content: bytes,
-        source: str = "unknown",
-        command: Optional[str] = None,
-        evidence_class: EvidenceClass = EvidenceClass.UNKNOWN,
-        mode: Mode = Mode.BUILD,
-        session_id: Optional[str] = None,
-        inline_required_facts: Optional[list] = None,
-    ) -> RawRef:
+        fsync flushes the temporary file. No claim of power-loss durability of
+        directory entries. A killed process may leave a private temporary file.
         """
-        Write content to the RAW store.
-
-        Content-addressable: if content with this SHA-256 already exists,
-        the existing entry is returned without re-writing (dedup).
-
-        Atomic write protocol:
-          1. Compute SHA-256
-          2. Check existence (dedup)
-          3. Write to .tmp file
-          4. Rename to final path (atomic on same volume)
-          5. Write metadata sidecar
-          6. Append to index.jsonl
-
-        Returns:
-            RawRef with sha256 and store_path.
-        """
-        self._ensure_dirs()
-
-        # Step 1: Compute SHA-256
-        sha256 = hashlib.sha256(content).hexdigest()
-        obj_path = self._object_path(sha256)
-        meta_path = self._meta_path(sha256)
-
-        # Step 2: Dedup — if already stored, return existing ref
-        if obj_path.exists():
-            return RawRef(sha256=sha256, store_path=str(obj_path))
-
-        # Step 3–4: Atomic write (write to .tmp, rename)
-        obj_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = obj_path.with_suffix(".tmp")
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        fd, temporary = tempfile.mkstemp(prefix='.raw-', dir=path.parent)
         try:
-            tmp_path.write_bytes(content)
-            tmp_path.rename(obj_path)  # atomic on same volume (I1)
-        except Exception:
-            # If rename fails, clean up temp file
+            with os.fdopen(fd, 'wb') as handle:
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
             try:
-                tmp_path.unlink(missing_ok=True)
-            except Exception:
-                pass
-            raise
+                os.link(temporary, path)
+            except FileExistsError:
+                pass  # The caller verifies the existing object before success.
+        finally:
+            Path(temporary).unlink(missing_ok=True)
 
-        # Step 5: Write metadata sidecar
-        meta_path.parent.mkdir(parents=True, exist_ok=True)
-        meta = RawMeta(
-            raw_sha256=sha256,
-            stored_at_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            source=source,
-            command=command,
-            evidence_class=evidence_class.value,
-            mode=mode.value,
-            byte_length=len(content),
-            session_id=session_id,
-            inline_required_facts=inline_required_facts or [],
-        )
-        meta_path.write_text(
-            json.dumps(asdict(meta), ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+    def write(self, content: bytes, source='unknown', command=None,
+              evidence_class=EvidenceClass.UNKNOWN, mode=Mode.BUILD,
+              session_id=None, inline_required_facts=None) -> RawRef:
+        """Explicit disk-write API for caller-assessed non-sensitive input.
 
-        # Step 6: Append to index.jsonl
-        index_record = {
-            "sha256": sha256,
-            "stored_at_utc": meta.stored_at_utc,
-            "byte_length": len(content),
-            "evidence_class": evidence_class.value,
-            "source": source,
-        }
-        with open(self._index_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(index_record) + "\n")
-
-        return RawRef(sha256=sha256, store_path=str(obj_path))
+        Calling this low-level API is storage consent. Prefer engine.process,
+        which defaults to EPHEMERAL. Legacy context arguments are checked but
+        never persisted: identical bytes do not imply identical event context.
+        Detection is a backstop, not a universal secret/PII detector.
+        """
+        if not isinstance(content, bytes):
+            raise TypeError('RAW content must be bytes')
+        context = '\n'.join(str(v) for v in (source, command, session_id, inline_required_facts) if v is not None).encode()
+        if contains_sensitive_material(content) or contains_sensitive_material(context):
+            raise ValueError('Sensitive material: disk persistence denied')
+        sha = hashlib.sha256(content).hexdigest()
+        path = self._object_path(sha)
+        ref = RawRef(sha, str(path))
+        if not path.exists():
+            self._publish(path, content)
+        recovered = self.read(ref)  # Verify even on dedup; never repair corrupt blobs.
+        metadata = {'schema': 2, 'raw_sha256': sha, 'byte_length': len(recovered)}
+        meta_path = self._meta_path(sha)
+        if not meta_path.exists():
+            self._publish(meta_path, json.dumps(metadata, sort_keys=True).encode())
+        if self.read_meta(ref) != metadata:
+            raise ValueError('Metadata inconsistent with content')
+        return ref
 
     def read(self, ref: RawRef, verify: bool = True) -> bytes:
-        """
-        Read content from the RAW store.
-
-        Args:
-            ref: RawRef to retrieve.
-            verify: If True, verify SHA-256 after read (I3). Default: True.
-
-        Returns:
-            Content bytes — byte-exact (I3).
-
-        Raises:
-            FileNotFoundError: If the entry does not exist.
-            ValueError: If SHA-256 verification fails (I3 violation).
-        """
-        obj_path = pathlib.Path(ref.store_path)
-        if not obj_path.exists():
-            # Try resolving by sha256 in case store_path is stale
-            obj_path = self._object_path(ref.sha256)
-        content = obj_path.read_bytes()
-
-        if verify:
-            actual_sha256 = hashlib.sha256(content).hexdigest()
-            if actual_sha256 != ref.sha256:
-                raise ValueError(
-                    f"I3 VIOLATION: SHA-256 mismatch for {ref.sha256}. "
-                    f"Expected {ref.sha256}, got {actual_sha256}. "
-                    "RAW store entry may be corrupted."
-                )
-
+        """Byte-exact recovery; unchecked reads are deliberately unsupported."""
+        if verify is not True:
+            raise ValueError('SHA-256 verification cannot be disabled')
+        self._validate_sha(ref.sha256)
+        if ref.ephemeral_content is not None:
+            content = ref.ephemeral_content
+        else:
+            path = self._object_path(ref.sha256)  # Never follow a caller-supplied path.
+            if path.is_symlink():
+                raise ValueError('Symlink RAW object rejected')
+            content = path.read_bytes()
+        if not isinstance(content, bytes) or hashlib.sha256(content).hexdigest() != ref.sha256:
+            raise ValueError('RAW blob SHA-256 mismatch')
         return content
 
     def exists(self, sha256: str) -> bool:
-        """Check if an entry with the given SHA-256 exists."""
+        """Presence only; read() is the integrity oracle."""
         return self._object_path(sha256).exists()
 
-    def read_meta(self, ref: RawRef) -> Optional[dict]:
-        """Read metadata sidecar for a RAW store entry."""
-        meta_path = self._meta_path(ref.sha256)
-        if not meta_path.exists():
+    def read_meta(self, ref: RawRef):
+        content = self.read(ref)
+        if ref.ephemeral_content is not None:
             return None
-        return json.loads(meta_path.read_text(encoding="utf-8"))
-
-
-# Module-level convenience instance using default location.
-# Tests should use RawStore(root=tmp_path) to avoid polluting the real store.
-_default_store: Optional[RawStore] = None
+        path = self._meta_path(ref.sha256)
+        if path.is_symlink():
+            raise ValueError('Symlink RAW metadata rejected')
+        if not path.exists():
+            return None
+        try:
+            data = json.loads(path.read_text(encoding='utf-8'))
+        except (ValueError, UnicodeError) as exc:
+            raise ValueError('Corrupt RAW metadata') from exc
+        expected = {'schema': 2, 'raw_sha256': ref.sha256, 'byte_length': len(content)}
+        if (data != expected or type(data.get('schema')) is not int
+                or type(data.get('byte_length')) is not int):
+            raise ValueError('RAW metadata mismatch or unsupported legacy schema')
+        return data
 
 
 def get_default_store() -> RawStore:
-    """Get or create the default RAW store instance."""
-    global _default_store
-    if _default_store is None:
-        _default_store = RawStore()
-    return _default_store
+    """Lazy handle only; construction/import never creates directories."""
+    return RawStore()
+
+
+def _get_root() -> Path:
+    """Compatibility helper; still no filesystem writes."""
+    return RawStore().root

@@ -4,9 +4,7 @@ tests/test_machine_data.py — Machine data validity tests (I8, stub).
 V0: T04 JSON minification is not implemented. Tests verify that
 MACHINE_DATA content defaults to RAW (no transform applied in V0).
 
-M02: When T04 is implemented, add:
-  - json.loads(result.content) == json.loads(raw_content)
-  - Invalid JSON → RAW (not transformed)
+T04 remains DEFERRED. Parse equality alone is not consumer equivalence.
 """
 
 import json

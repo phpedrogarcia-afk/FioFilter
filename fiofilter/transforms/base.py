@@ -6,9 +6,9 @@ The engine only calls transforms through this ABC — never directly.
 
 Transform contract:
   - apply() must be deterministic: apply(x) == apply(x) always
-  - apply() must fail-open: any exception → return None → engine uses RAW
+  - exceptions propagate to the engine, which returns RAW
   - apply() must not expand: len(result) < len(raw) or return None
-  - apply() must be lossless by design (I3 — RAW store handles byte recovery)
+  - RAW recovery (I3) does not establish visible transform reversibility
   - Inline-required facts must survive (I4 — engine verifies after apply())
 """
 

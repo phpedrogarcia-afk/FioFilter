@@ -89,17 +89,14 @@ class TestRawStoreWriteRead:
 
         assert expected_obj.exists()
         assert expected_meta.exists()
-        assert expected_index.exists()
+        assert not expected_index.exists()  # M02: no redundant event index
 
-    def test_index_jsonl_appended(self, tmp_raw_store: RawStore):
-        """index.jsonl gets one line per unique write."""
-        tmp_raw_store.write(b"entry 1")
-        tmp_raw_store.write(b"entry 2")
-        tmp_raw_store.write(b"entry 1")  # dedup — should NOT add a new line
-
-        index_path = tmp_raw_store.root / "index.jsonl"
-        lines = index_path.read_text(encoding="utf-8").strip().splitlines()
-        assert len(lines) == 2  # only two unique entries
+    def test_dedup_has_one_content_only_metadata_record(self, tmp_raw_store):
+        first = tmp_raw_store.write(b"entry 1", source="first")
+        second = tmp_raw_store.write(b"entry 1", source="second")
+        assert first == second
+        assert "source" not in tmp_raw_store.read_meta(first)
+        assert len(list((tmp_raw_store.root / "meta").rglob("*.json"))) == 1
 
     def test_missing_entry_raises(self, tmp_raw_store: RawStore):
         """Reading a non-existent entry raises FileNotFoundError."""

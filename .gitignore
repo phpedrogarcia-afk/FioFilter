@@ -43,3 +43,6 @@ desktop.ini
 
 # Distribution / packaging
 MANIFEST
+
+# Conventional opt-in runtime locations (custom locations remain caller-owned)
+.fiofilter/

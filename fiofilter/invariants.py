@@ -1,7 +1,8 @@
 """
-fiofilter.invariants — I1–I16 enforcement checks.
+fiofilter.invariants — Pure precondition checks for part of I1–I16.
 
-Each invariant is callable and returns an InvariantResult.
+These checks cover I5/I6/I7/I8/I9/I12 and mode restrictions.
+I1/I3 live in raw_store; I2/I4/I16 in engine; I10/I13 have V0 limits.
 The check() function runs all applicable invariants for a given
 evidence class and policy, returning the first forced disposition
 or OK if all invariants pass.

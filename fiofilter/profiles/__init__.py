@@ -27,13 +27,12 @@ def get_profile(profile_id: str = "default") -> BaseProfile:
     """
     Get a profile instance by ID.
 
-    Unknown profile IDs fall back to the default profile with a warning.
+    Unknown profile IDs raise ValueError; the engine returns RAW.
     Profiles cannot weaken invariants (I12) — the engine enforces this.
     """
     cls = _PROFILES.get(profile_id)
     if cls is None:
-        # Unknown profile → default (I5 principle: unknown → safe)
-        return DefaultProfile()
+        raise ValueError("Unknown profile")
     return cls()
 
 

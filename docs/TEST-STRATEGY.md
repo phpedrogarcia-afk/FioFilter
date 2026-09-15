@@ -1,309 +1,79 @@
-# FioFilter — Test Strategy
-
-**Principle**: Tests are defined before compression logic is implemented.
-**Oracle**: Repository state and test results outrank conversational assumptions.
-
----
-
-## V0 Quality Gates (Required Before Any Codex Integration)
-
-| Gate | Requirement | Test File |
-|---|---|---|
-| RAW_RECOVERY_SHA_MATCH | 100% | `test_raw_store.py` |
-| INLINE_REQUIRED_CRITICAL_FACT_PRESERVATION | 100% | `test_inline_preservation.py` |
-| UNEXPECTED_PROTECTED_TRANSFORMATIONS | 0 | `test_invariants.py` |
-| MACHINE_DATA_VALIDITY_FAILURES | 0 | `test_machine_data.py` |
-| SECURITY_OR_AUTHORITY_FACT_LOSS | 0 | `test_invariants.py` |
-| FAILURE_DIAGNOSTIC_UNSAFE_CASES | 0 | `test_decision_engine.py` |
-
-All gates must pass before integration work begins.
-
----
-
-## Test Families
-
-### Family 1: RAW Byte-Exact Recovery (`test_raw_store.py`)
-
-**What it tests**: The RAW store's core guarantee — I1 + I3.
-
-```python
-# Oracle assertions:
-assert sha256(store.read(ref)) == ref.raw_sha256   # byte-exact
-assert store.read(ref) == original_bytes            # identity
-assert store.write(x) == store.write(x)             # idempotent (dedup)
-assert (raw_store_root / "objects").exists()        # correct layout
-```
-
-**Test cases**:
-- Round-trip: write → read → compare bytes + SHA-256
-- Idempotency: writing identical content twice produces same `raw_ref`
-- Atomicity: interrupted write does not leave corrupt entry (simulated)
-- Large content: content > 64KB stored and recovered correctly
-- Unicode content: arbitrary bytes recovered correctly
-- Empty content: empty bytes stored and recovered
-
----
-
-### Family 2: Evidence Classification (`test_classifier.py`)
-
-**What it tests**: The classifier correctly routes evidence to classes, defaults
-unknown to RAW (I5).
-
-```python
-# Oracle assertions:
-assert classify("").evidence_class == EvidenceClass.UNKNOWN
-assert classify(unknown_content).evidence_class == EvidenceClass.UNKNOWN
-assert classify(low_confidence_content).evidence_class == EvidenceClass.UNKNOWN
-assert classify(json_content).evidence_class == EvidenceClass.MACHINE_DATA
-```
-
-**Test cases**:
-- Empty content → UNKNOWN
-- Content with no matching rules → UNKNOWN
-- JSON-parseable content → MACHINE_DATA
-- Non-zero exit code content → candidate for FAILURE
-- Repeated identical lines → NOISE or PROGRESS
-- Directory listing patterns → DISCOVERY
-- All-PASS test output → SUCCESS_SUMMARY
-- Any-FAIL test output → FAILURE
-- Git log/status patterns → CANONICAL_STATE
-- SHA-256 / hash patterns → CANONICAL_STATE (or AUTHORITY context-dependent)
-- Classifier confidence below threshold → UNKNOWN
-
----
-
-### Family 3: Protected Evidence → RAW (`test_invariants.py`)
-
-**What it tests**: I5, I6, I7 — protected classes always produce RAW disposition.
-
-```python
-# Oracle assertions (for all modes: EXPLORE, BUILD, PROVE):
-assert engine.process(authority_content, mode=any).disposition == Disposition.RAW
-assert engine.process(security_content, mode=any).disposition == Disposition.RAW
-assert engine.process(unknown_content, mode=any).disposition == Disposition.RAW
-assert engine.process(failure_content, mode=any).disposition == Disposition.RAW
-```
-
-**Test cases**:
-- AUTHORITY class, EXPLORE mode → RAW
-- AUTHORITY class, BUILD mode → RAW
-- AUTHORITY class, PROVE mode → RAW
-- SECURITY class, any mode → RAW
-- UNKNOWN class, any mode → RAW
-- FAILURE class, any mode → RAW
-- CANONICAL_STATE class, any mode → RAW
-- BENCHMARK class, any mode → RAW
-
----
-
-### Family 4: Unexpected Failure Escalation (`test_mode_escalation.py`)
-
-**What it tests**: I6 — failure escalates regardless of current mode.
-
-**Test cases**:
-- EXPLORE mode + non-zero exit code → disposition upgraded to RAW
-- BUILD mode + non-zero exit code → RAW
-- EXPLORE mode + "Exception" in output → FAILURE class → RAW
-- Mode escalation is one-directional within a result (not session-wide in V0)
-
----
-
-### Family 5: Transform Determinism (`test_transforms.py`)
-
-**What it tests**: Transforms produce identical output for identical input.
-
-```python
-# Oracle assertions:
-assert transform(x) == transform(x)           # determinism
-assert transform(x) == transform(x)           # (second call, no state)
-```
-
-**Test cases per transform** (T01 in V0):
-- T01: `fold_duplicates(x) == fold_duplicates(x)` for arbitrary content
-- T01: `fold_duplicates(x)` with no duplicates == x (identity)
-- T01: `fold_duplicates(x)` with duplicates produces fold marker
-- T01: fold marker contains correct count
-
----
-
-### Family 6: Transform Does Not Expand (`test_transforms.py` + `test_economics.py`)
-
-**What it tests**: I9 — transforms that expand output lose to RAW.
-
-```python
-# Oracle assertions:
-result = engine.process(content_with_no_duplicates)
-assert result.disposition == Disposition.RAW  # T01 found nothing to fold
-assert len(result.content) == len(raw_content)
-
-result = engine.process(content_with_duplicates)
-assert len(result.content) < len(raw_content)
-```
-
-**Test cases**:
-- Content with no duplicates → T01 returns RAW (no savings)
-- Content with duplicates → T01 returns TRANSFORM, len(result) < len(raw)
-- Pathological case: T01 fold marker longer than saved content → RAW
-
----
-
-### Family 7: Machine Data Validity (`test_machine_data.py`)
-
-**What it tests**: I8 — MACHINE_DATA transforms preserve machine validity.
-
-```python
-# Oracle assertions (future T04):
-parsed_raw = json.loads(raw_content)
-parsed_transformed = json.loads(result.content)
-assert parsed_raw == parsed_transformed
-```
-
-**Test cases** (stub in V0; full in M02 when T04 is implemented):
-- Valid JSON + T04 → result parses as JSON with equal structure
-- Invalid JSON → disposition is RAW (not transformed)
-- JSON with whitespace → T04 reduces bytes, result still parses
-
----
-
-### Family 8: Critical-Fact Inline Preservation (`test_inline_preservation.py`)
-
-**What it tests**: I4 — inline-required facts survive transforms.
-
-```python
-# Oracle assertions:
-for fact in inline_required_facts:
-    assert fact in result.content  # fact present in visible output
-```
-
-**Test cases**:
-- Transform result contains all inline_required_facts
-- If any fact is missing from transform result → disposition is RAW
-- Transform result with all facts → accepted
-- Edge case: fact appears only in fold marker → verify marker format preserves fact
-
----
-
-### Family 9: Profile Cannot Weaken Core Invariant (`test_profiles.py`)
-
-**What it tests**: I12 — profiles cannot override constitutional invariants.
-
-```python
-# Oracle assertions:
-for mode in [Mode.EXPLORE, Mode.BUILD, Mode.PROVE]:
-    for profile in [DefaultProfile(), FioOSProfile(), FioIdeaisProfile()]:
-        result = engine.process(authority_content, mode=mode, profile=profile)
-        assert result.disposition == Disposition.RAW
-
-    result = engine.process(unknown_content, mode=Mode.EXPLORE, profile=FioOSProfile())
-    assert result.disposition == Disposition.RAW
-```
-
-**Test cases**:
-- FioOS profile + AUTHORITY class, any mode → RAW
-- FioOS profile + SECURITY class, any mode → RAW
-- FioOS profile + UNKNOWN class, any mode → RAW
-- FioIdeias profile + FAILURE class, EXPLORE mode → RAW
-- Any profile cannot change UNKNOWN default
-
----
-
-### Family 10: Windows Path / RAW Store Behavior (`test_windows_paths.py`)
-
-**What it tests**: RAW store works correctly on Windows filesystem.
-
-**Test cases**:
-- RAW store initialized in a temp Windows path
-- Entries stored and recovered from paths with spaces
-- Store handles maximum common filename length
-- Temp file renamed atomically on same volume
-- Store path with backslashes handled correctly
-- Store location defaults outside the FioFilter repo
-
----
-
-### Family 11: Economics / Metric Separation (`test_economics.py`)
-
-**What it tests**: I14, I15 — metrics are distinct, not conflated.
-
-```python
-# Oracle assertions:
-m = engine.process(content).metrics
-assert m.raw_bytes != m.raw_token_estimate  # bytes ≠ tokens
-assert m.visible_bytes != m.visible_token_estimate
-assert m.raw_token_estimate == approx(len(raw) / 4, rel=0.5)  # approximation
-# No metric claims to be equivalent to whole-mission savings
-```
-
-**Test cases**:
-- Metrics object contains all required fields (I14)
-- `raw_bytes` and `raw_token_estimate` are different values
-- Token estimates use chars/4 approximation, not exact tokenizer
-- Metrics emitted for RAW disposition (not only for TRANSFORM)
-- Metrics logged to JSONL
-
----
-
-### Family 12: Corpus Replay (`tests/corpus/`)
-
-**What it tests**: Known Tool Results from the P14 CCA corpus produce correct
-dispositions against their labeled evidence classes.
-
-**Status in V0**: Harness defined, corpus not loaded. Corpus loader reads from
-JSONL files with schema:
-
-```json
-{
-  "corpus_entry_id": "p14-001",
-  "source": "FioOS-P14-CCA-corpus",
-  "raw_content_b64": "...",
-  "classification_label": "CANONICAL_STATE",
-  "inline_required_facts": ["commit abc123", "branch main"],
-  "expected_disposition": "RAW",
-  "expected_inline_facts_present": true
-}
-```
-
-When corpus is loaded (M02+): all 40 P14 entries must produce correct disposition.
-Known failure modes from P14 CCA must be reproduced as expected-RAW test cases.
-
----
-
-## Transform Test Oracle Pattern
-
-Every transform must define and pass these five assertions:
-
-```python
-def test_transform_oracle(transform, raw_content, expected_facts):
-    # 1. Determinism
-    assert transform(raw_content) == transform(raw_content)
-
-    # 2. No expansion
-    result = transform(raw_content)
-    if result != raw_content:  # transform fired
-        assert len(result) < len(raw_content)
-
-    # 3. Inline fact preservation
-    for fact in expected_facts:
-        assert fact in result
-
-    # 4. Fail-open
-    with mock.patch.object(transform, '_apply', side_effect=Exception):
-        fallback = engine.process_with_transform(raw_content)
-        assert fallback.disposition == Disposition.RAW
-
-    # 5. Round-trip (via RAW store)
-    ref = raw_store.write(raw_content)
-    recovered = raw_store.read(ref)
-    assert recovered == raw_content  # always — transform doesn't affect RAW store
-```
-
----
-
-## What Is NOT Tested in V0
-
-- Whole-mission Codex A/B (M03+)
-- Corrective retrieval prediction (M02+)
-- T02 template folding, T03 PASS aggregation, T04 JSON minification (M02)
-- T05 delta transform (M02+)
-- Multi-threaded concurrency (future)
-- Auto-learning or feedback loops (non-goal)
+# Test strategy — M02
+
+Run `python -m pytest tests/ -v` before and after changes. Test count is not a
+quality target. Assertions should detect material evidence/storage failures and
+must not accept every possible disposition. Tests use temporary directories and
+synthetic, inert data, never real credentials or private source material.
+
+## Oracles
+
+- **RAW recovery**: recovered bytes == input AND SHA-256 matches; corruption,
+  unchecked reads and malformed addresses are errors, never accepted data.
+- **Visible T01 reconstruction**: `decode_visible(output) == input`, independently
+  of a RAW store. Header/count/boundary tampering and reserved literal collisions
+  must reject; LF/CRLF/tails/order survive. Header overhead counts against savings.
+- **Evidence**: full input, including late/hidden failures and mixed warnings,
+  remains RAW. Nonzero exit overrides every profile/mode. Unknown repetitions
+  never establish noise eligibility. Protected classes cannot acquire T01 through
+  a permissive profile. Known boilerplate must actually reduce, including PROVE.
+- **Persistence**: sensitive content or metadata creates neither archive nor audit
+  log. Default process/store construction writes nothing. EPHEMERAL is recoverable
+  through a retained reference. PERSIST requires explicit assessment and request.
+  Public security findings can persist without allowing credentials to do so.
+- **Failures**: classifier, profile, store, transform factory/apply, validator and
+  audit I/O exceptions return original bytes and an explicit in-memory reason.
+- **Economics**: exact byte units, explicit token ESTIMATE method, optional supplied
+  observations with None defaults and apply-only time; no mission-savings inference.
+
+## Tests by responsibility
+
+Existing `test_classifier`, `test_invariants`, `test_decision_engine`,
+`test_profiles`, `test_inline_preservation`, `test_machine_data`,
+`test_mode_escalation`, `test_transforms`, `test_raw_store`, `test_economics` and
+`test_windows_paths` retain baseline coverage, with obsolete index/marker contracts
+updated explicitly. Weak assertions were strengthened where they hid observed bugs.
+
+M02 adds:
+
+- `test_m02_evidence.py`: mixed-content precedence, tail inspection, binary/invalid
+  UTF-8, ANSI-hidden failure, stderr/exit/hints/truncation, permissive profile,
+  exception injection, RAW-before-transform and seeded failure placement.
+- `test_m02_storage.py`: sensitivity/storage orthogonality, context secret checks,
+  no default files, content-only metadata, corrupt/missing blob and metadata,
+  no-clobber concurrent same-object writers, interrupted publication and address validation.
+- `test_m02_t01.py`: separate visible decoder, exact counts/positions, CRLF/LF,
+  marker collisions, tamper/bomb rejection, required occurrence preservation and
+  seeded generated byte round trips. A minimum number of reductions rejects RAW-only implementations.
+- `test_m02_contract.py`: canonical Python profile source, policy subsets,
+  mode/class invariant precedence, in-memory/disk audit and external metrics.
+
+These constitute **VERIFIED IN CURRENT TEST CORPUS**, not exhaustive semantic
+proof. See `M02-AUDIT.md` for scoped guarantee classifications and measured results.
+
+## CI and portability
+
+`.github/workflows/tests.yml` uses mandatory Windows Server 2022 and a small Linux
+Ubuntu 24.04 job, both standard GitHub-hosted runners, Python 3.9 (minimum supported
+version), pinned checkout/setup actions, read-only repository permission and
+`persist-credentials: false`. No caches or artifacts are uploaded. Each job has a
+10-minute bound and runs editable install plus the canonical test command.
+
+CI proves that its checked-out SHA installs and passes this corpus on those runner
+filesystems/Python. A Windows run exercises real NTFS publication/path semantics;
+a Linux test containing a Windows-looking string alone does not prove Windows
+compatibility. Windows coverage is only VERIFIED after a successful observed job.
+The workflow's Windows job is mandatory in its job graph, not claimed to be a
+repository branch-protection required check; no administration settings are changed.
+
+## Limitations
+
+No original FioOS P14 corpus is bundled or replayed. `tests/corpus/README.md` is an
+import specification, not an implemented loader. Historical percentages were not
+reproduced here. No universal classifier/secret detection, original merged-stream
+interleaving, upstream truncation recovery, arbitrary filesystem hard-link support,
+OS crash/power-loss durability, hostile filesystem protection, Python-version-wide
+matrix, whole-mission economics or integration behavior is established.
+
+T02–T05, batching and predictive retrieval remain deferred. Future JSON tests must
+establish consumer contracts; parse equality alone is insufficient. Seeded tests
+use the standard library and do not add a fuzz framework dependency.

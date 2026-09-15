@@ -29,7 +29,7 @@ class EvidenceClass(enum.Enum):
 
     DISCOVERY = "DISCOVERY"
     """Directory listings, broad file searches, package enumerations — large
-    but low-stakes. Transform allowed in EXPLORE/BUILD."""
+    but low-stakes. Future reduction frontier; no approved T01 policy for this class."""
 
     PROGRESS = "PROGRESS"
     """Incremental build output, test runner dots, download progress bars —
@@ -37,11 +37,11 @@ class EvidenceClass(enum.Enum):
 
     SUCCESS_SUMMARY = "SUCCESS_SUMMARY"
     """Final pass counts, install confirmations, clean exits.
-    Transform allowed in EXPLORE/BUILD."""
+    RAW until a success-summary consumer contract is approved."""
 
     DIAGNOSTIC = "DIAGNOSTIC"
     """Warnings, deprecations, stack traces (non-failure context).
-    Constrained transform in EXPLORE; RAW in BUILD/PROVE."""
+    RAW until a diagnostic consumer contract is approved."""
 
     FAILURE = "FAILURE"
     """Non-zero exits, test failures, crash logs, unexpected errors.
@@ -53,14 +53,15 @@ class EvidenceClass(enum.Enum):
 
     MACHINE_DATA = "MACHINE_DATA"
     """JSON/YAML/CSV structured outputs consumed programmatically.
-    Lossless-only transforms (I8). RAW in PROVE."""
+    RAW in V0; machine compatibility requires a separate contract (I8)."""
 
     AUTHORITY = "AUTHORITY"
     """Ownership records, permission grants, signing outputs, audit logs.
     Always RAW — all modes (I7)."""
 
     SECURITY = "SECURITY"
-    """Key material, certificates, access tokens, auth outputs, vulnerability findings.
+    """Security findings and security-related output. Sensitivity is orthogonal;
+    this class does not authorize storage.
     Always RAW — all modes (I7)."""
 
     BENCHMARK = "BENCHMARK"
@@ -76,7 +77,7 @@ class Mode(enum.Enum):
     Operational mode — influences policy, does not grant authority.
 
     Modes cannot override invariants I1–I16.
-    Mode escalation is one-directional per result: EXPLORE → BUILD → PROVE.
+    There is no session state or mode escalation. Failure forces RAW per result.
     """
 
     EXPLORE = "EXPLORE"
@@ -92,16 +93,30 @@ class Mode(enum.Enum):
     Goal: evidence fidelity dominates compression."""
 
 
+class Persistence(enum.Enum):
+    """Independent storage decision; RAW visibility does not authorize disk writes."""
+
+    PERSIST = "PERSIST"
+    EPHEMERAL = "EPHEMERAL"
+    DO_NOT_PERSIST = "DO_NOT_PERSIST"
+
+
+class Sensitivity(enum.Enum):
+    UNKNOWN = "UNKNOWN"
+    NON_SENSITIVE = "NON_SENSITIVE"
+    SENSITIVE = "SENSITIVE"
+
+
 class Disposition(enum.Enum):
     """
     Decision outcome — what the engine decided to do with the tool result.
     """
 
     RAW = "RAW"
-    """Return the raw content unchanged. RAW store entry still written."""
+    """Return raw bytes unchanged. Storage is decided independently."""
 
     TRANSFORM = "TRANSFORM"
-    """Apply a deterministic transform. RAW store entry written first."""
+    """Apply a deterministic transform after disk or ephemeral recovery is prepared."""
 
     ESCALATE_TO_RAW = "ESCALATE_TO_RAW"
     """Transform was attempted or selected but a guard forced RAW return.
@@ -124,7 +139,11 @@ class RawRef:
     """SHA-256 hex digest of the raw content bytes."""
 
     store_path: str
-    """Absolute path to the content file in the RAW store."""
+    """Disk path hint, or empty for ephemeral recovery. Never trusted for reads."""
+
+
+    ephemeral_content: Optional[bytes] = field(default=None, repr=False, compare=False)
+    """Immutable recovery bytes owned by this reference, never a global archive."""
 
 
 @dataclass
@@ -154,6 +173,15 @@ class ToolResult:
     """Session identifier for mission-level metrics."""
 
 
+    persistence: Persistence = Persistence.EPHEMERAL
+    sensitivity: Sensitivity = Sensitivity.UNKNOWN
+    inline_required_facts: List[str] = field(default_factory=list)
+    stream: str = "combined"
+    """stdout/stderr/combined/file. Process streams separately; no invented ordering."""
+    truncated: bool = False
+    """Known incomplete input must remain RAW; missing bytes cannot be recovered."""
+
+
 @dataclass
 class FilterMetrics:
     """
@@ -170,11 +198,11 @@ class FilterMetrics:
     """Byte length of the content returned to the model."""
 
     raw_token_estimate: float
-    """Estimated tokens in raw content (approximation: chars / 4).
+    """Estimated tokens in raw content (approximation: UTF-8 bytes / 4).
     NOT a billing figure. Never conflate with whole-mission savings (I15)."""
 
     visible_token_estimate: float
-    """Estimated tokens in visible output (approximation: chars / 4)."""
+    """Estimated tokens in visible output (approximation: UTF-8 bytes / 4)."""
 
     transform_duration_ms: float
     """Wall-clock time for the transform step, in milliseconds."""
@@ -191,8 +219,13 @@ class FilterMetrics:
     corrective_retrieval_required: Optional[bool] = None
     """Whether a corrective retrieval was required. None = unknown."""
 
-    raw_recovery_count: int = 0
-    """Number of times this raw entry was retrieved (future tracking)."""
+    raw_recovery_count: Optional[int] = None
+    """Externally supplied recovery count. None means unmeasured."""
+
+    actual_model_tokens: Optional[int] = None
+    model_turns: Optional[int] = None
+    corrective_retrievals: Optional[int] = None
+    token_estimate_method: str = "utf8_bytes_div_4_ESTIMATE"
 
 
 @dataclass
@@ -202,7 +235,7 @@ class FilterResult:
 
     Always contains:
     - content: the visible output (may be identical to raw for RAW disposition)
-    - raw_ref: reference to the RAW store entry (always written)
+    - raw_ref: optional disk or ephemeral recovery reference
     - metrics: per-result economics
 
     For TRANSFORM disposition, also contains:
@@ -218,11 +251,11 @@ class FilterResult:
     disposition: Disposition
     """The decision outcome."""
 
-    raw_ref: RawRef
-    """Reference to the immutable RAW store entry. Always present."""
+    raw_ref: Optional[RawRef]
+    """Recovery reference, absent for DO_NOT_PERSIST or storage failure."""
 
     raw_sha256: str
-    """SHA-256 of the original raw content. Always present."""
+    """SHA-256 of the original raw content. Present in memory."""
 
     evidence_class: EvidenceClass
     """Evidence class assigned by the classifier."""
@@ -238,6 +271,16 @@ class FilterResult:
 
     policy_decision: Optional[str] = None
     """Human-readable policy decision rationale."""
+
+    persistence: Persistence = Persistence.EPHEMERAL
+    sensitivity: Sensitivity = Sensitivity.UNKNOWN
+    audit: dict = field(default_factory=dict)
+    source: str = "unknown"
+    command: Optional[str] = None
+    session_id: Optional[str] = None
+    stream: str = "combined"
+    exit_code: Optional[int] = None
+    truncated: bool = False
 
     inline_required_facts: List[str] = field(default_factory=list)
     """Facts that were required to be present inline. Used for auditing."""

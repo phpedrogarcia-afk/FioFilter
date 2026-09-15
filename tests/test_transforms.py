@@ -31,12 +31,12 @@ class TestT01DeterminismAndIdentity:
     def test_single_duplicate_triggers_fold(self, t01):
         """Two identical consecutive long lines → fold fires (result < raw)."""
         # Line must be long enough that fold marker doesn't negate savings
-        long_line = "same line content repeated here with enough data\n"
+        long_line = "same line content repeated here with enough data " * 4 + "\n"
         content = (long_line * 2 + "different\n").encode("utf-8")
         result = t01.apply(content)
         assert result is not None
         assert b"same line content" in result
-        assert b"duplicates folded" in result
+        assert b"count=2 first=1 last=2" in result
 
     def test_many_duplicates_folded(self, t01):
         """20 duplicate lines fold to 1 + marker."""
@@ -45,7 +45,7 @@ class TestT01DeterminismAndIdentity:
         result = t01.apply(content)
         assert result is not None
         assert b"repeated" in result
-        assert b"19" in result  # 19 duplicates folded (first kept)
+        assert b"count=20 first=1 last=20" in result  # count includes first
 
     def test_mixed_content_preserved(self, t01):
         """Non-duplicate lines pass through unchanged; long dups get folded."""

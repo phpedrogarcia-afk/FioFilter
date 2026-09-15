@@ -4,10 +4,11 @@ This directory will contain the regression corpus for FioFilter.
 
 ## Status
 
-**V0**: Empty. Corpus importer defined but no data loaded.
+**V0/M02**: No original corpus data or executable importer exists.
+This file defines a proposed import schema only.
 
-Corpus loading will happen in M02 after explicit authorization to use
-the P14 CCA FioOS Tool Results.
+Original FioOS corpus import/replay is deferred to a separately authorized
+mission with assessed non-sensitive source material.
 
 ## Corpus Entry Schema
 
@@ -31,7 +32,8 @@ Each entry is a JSON object in a JSONL file:
 
 ## Known Failure Modes (from P14 CCA corpus)
 
-The P14 corpus contains 40 FioOS Tool Results that were analyzed under CCA.
+M01 reports 40 FioOS Tool Results analyzed under CCA; those source records
+are not present here, and M02 does not independently reproduce the result.
 Known failure modes to reproduce:
 
 1. `curl GET` output compressed → README facts missing → task failure
@@ -43,7 +45,9 @@ Known failure modes to reproduce:
 3. JSON output structurally equivalent but inline identifier stripped
    (validates I8)
 
-## How to Load Corpus (M02+)
+## Proposed future usage (not executable)
+
+The following illustrates a future API. `tests.corpus.loader` does not exist.
 
 ```python
 from tests.corpus.loader import load_corpus

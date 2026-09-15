@@ -1,5 +1,13 @@
 # FioFilter — Donor Autopsy
 
+> M02 historical annotation: the following is retained as the M01 autopsy, not
+> a fresh verification of upstream tools. No new donor research was performed.
+> Its FioFilter "always-write/always-complete" storage statements are superseded
+> by M02-D001; metrics and audit claims by M02-D005; M02 scheduling/T04 statements
+> by M02-D003/D006. Historical FioOS measurements were not independently replayed
+> because the original corpus is not bundled. Current architecture is normative
+> in ARCHITECTURE.md and EVIDENCE-CONTRACT.md.
+
 **Mission**: FIOFILTER-M01-FOUNDATION  
 **Scope**: Bounded — three donors only  
 **Date**: 2026-09-15  

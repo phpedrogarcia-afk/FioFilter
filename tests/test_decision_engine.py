@@ -102,18 +102,14 @@ class TestModeEffects:
         """NOISE in EXPLORE mode → TRANSFORM disposition expected."""
         result = process(noise_tool_result, mode=Mode.EXPLORE, raw_store=tmp_raw_store,
                          metrics_log_path=tmp_metrics_log)
-        # Should be TRANSFORM (T01 fires on duplicate lines) or RAW (if no savings)
-        assert result.disposition in (Disposition.TRANSFORM, Disposition.RAW,
-                                      Disposition.ESCALATE_TO_RAW)
-        # Critically: content is valid bytes
-        assert isinstance(result.content, bytes)
-        assert len(result.content) > 0
+        assert result.disposition == Disposition.TRANSFORM
+        assert len(result.content) < len(noise_tool_result.content)
 
     def test_noise_in_build_mode(self, noise_tool_result, tmp_raw_store, tmp_metrics_log):
         """NOISE in BUILD mode → policy allows TRANSFORM."""
         result = process(noise_tool_result, mode=Mode.BUILD, raw_store=tmp_raw_store,
                          metrics_log_path=tmp_metrics_log)
-        assert isinstance(result.content, bytes)
+        assert result.disposition == Disposition.TRANSFORM
 
 
 class TestFilterResultStructure:

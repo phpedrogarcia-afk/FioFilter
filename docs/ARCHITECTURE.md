@@ -1,340 +1,139 @@
-# FioFilter — Architecture
-
-## Purpose
-
-FioFilter is a deterministic, evidence-aware context reduction layer for coding agents.
-It processes tool results before they enter the model context, aiming to maximize
-useful progress per context token while preserving evidence integrity.
-
----
-
-## Governing Philosophy
-
-```
-AGGRESSIVE AT THE EXPLORATION BOUNDARY.
-RIGOROUS AT THE EVIDENCE BOUNDARY.
-```
-
-These are not in tension. EXPLORE mode + NOISE class permits aggressive folding.
-PROVE mode + AUTHORITY class enforces RAW regardless of size.
-
----
-
-## System Components
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         FIOFILTER V0                                │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  ToolResult (raw bytes + metadata)                                  │
-│       │                                                             │
-│       ▼                                                             │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │                    DECISION ENGINE                           │  │
-│  │                   (engine.py)                                │  │
-│  │                                                              │  │
-│  │  1. normalize_metadata(tool_result)                          │  │
-│  │  2. classifier.classify(meta, content) → EvidenceClass       │  │
-│  │  3. profile.get_policy(evidence_class, mode) → Policy        │  │
-│  │  4. invariants.check(evidence_class, policy) → OK / FORCE_RAW│  │
-│  │  5. select_disposition(class, mode, policy, inv) → Disposition│  │
-│  │  6. raw_store.write(content) → RawRef   [BEFORE transform]   │  │
-│  │  7. transforms.apply(disposition, content) → TransformResult  │  │
-│  │  8. validator.validate(result, class, meta) → bool           │  │
-│  │  9. if len(result) >= len(raw): return RAW   [I9]            │  │
-│  │  10. if inline_facts_missing: return RAW     [I4]            │  │
-│  │  11. metrics.record(...)                                     │  │
-│  │  12. return FilterResult                                     │  │
-│  └────────────────────────┬────────────────────────────────────┘  │
-│                           │                                         │
-│          ┌────────────────┴─────────────────┐                      │
-│          ▼                                   ▼                      │
-│    ┌──────────────────┐             ┌───────────────────┐          │
-│    │   RAW STORE      │             │  TRANSFORM OUTPUT │          │
-│    │  (raw_store.py)  │             │  (visible content │          │
-│    │  SHA-256         │             │   + raw_ref link) │          │
-│    │  content-addr.   │             └───────────────────┘          │
-│    │  immutable       │                                             │
-│    │  filesystem      │                                             │
-│    └──────────────────┘                                             │
-│                                                                     │
-│  ┌────────────────────────────────────────────────────────────┐    │
-│  │               METRICS LOGGER (metrics.py)                  │    │
-│  │  raw_bytes · visible_bytes · token_estimates · duration_ms  │    │
-│  │  evidence_class · mode · decision · corrective_retrievals   │    │
-│  └────────────────────────────────────────────────────────────┘    │
-│                                                                     │
-│  PROFILES: profiles/default.yaml · fioos.yaml · fioideias.yaml     │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Package Layout
-
-```
-fiofilter/
-  __init__.py          Version and public surface
-  types.py             EvidenceClass, Mode, Disposition, ToolResult, FilterResult,
-                       RawRef, TransformResult, FilterMetrics — all dataclasses/enums
-  invariants.py        I1–I16 as callable functions; invariants.check() returns
-                       InvariantResult with forced disposition or OK
-  classifier.py        Deterministic rule-based classifier; no LLM; returns
-                       ClassifyResult(evidence_class, confidence, inline_required_facts)
-  engine.py            Decision pipeline — single entry point: process()
-  raw_store.py         Immutable local RAW store; content-addressable by SHA-256;
-                       atomic writes; metadata sidecar; Windows-safe paths
-  metrics.py           FilterMetrics dataclass + JSONL logger
-  transforms/
-    __init__.py        Transform registry
-    base.py            Transform ABC: apply(content, meta) → TransformResult
-                                      recover(result, raw_ref) → bytes
-    t01_dup_fold.py    T01: Exact duplicate-line folding
-  profiles/
-    __init__.py        Profile loader
-    base.py            BaseProfile ABC: get_policy(evidence_class, mode) → Policy
-    default.py         Default profile (standard taxonomy table)
-    fioos.py           FioOS profile (additional protections)
-    fioideias.py       FioIdeias profile (stub)
-
-tests/
-  conftest.py          Shared fixtures: tmp RAW store, synthetic tool results
-  test_raw_store.py    RAW byte-exact recovery, atomicity, SHA-256 match
-  test_invariants.py   I1–I16 individually testable
-  test_classifier.py   UNKNOWN→RAW, evidence class routing
-  test_decision_engine.py  Full pipeline integration: all disposition paths
-  test_transforms.py   Determinism, no-expansion, round-trip, fail-open (T01)
-  test_machine_data.py Machine validity (future T04)
-  test_inline_preservation.py  I4: inline-required facts survive transforms
-  test_profiles.py     Profile cannot weaken core invariant (I12)
-  test_windows_paths.py  RAW store on Windows paths, long paths
-  test_mode_escalation.py  EXPLORE/BUILD/PROVE behavior; I6 auto-escalation
-  test_economics.py    I9 (expansion=RAW), I14/I15 metric separation
-  corpus/
-    README.md          Corpus importer specification (data not yet loaded)
-
-profiles/
-  default.yaml         Default disposition table
-  fioos.yaml           FioOS policy overlay
-  fioideias.yaml       FioIdeias policy overlay (stub)
-```
-
----
-
-## Decision Pipeline — Detailed
-
-### Step 1: Normalize Metadata
-
-Extract from the raw ToolResult:
-- `command` (if known)
-- `exit_code` (if applicable)
-- `content_type` hint (JSON/text/binary)
-- `byte_length`
-- `source` (e.g., shell, file-read)
-
-No classification happens here. Pure extraction.
-
-### Step 2: Classify Evidence
-
-The classifier applies deterministic rules (regex, structural analysis, exit code) to assign an `EvidenceClass`.
-
-Rules fire in priority order:
-1. Exit code non-zero → candidate for FAILURE
-2. Binary content → MACHINE_DATA (lossless-only)
-3. JSON-parseable content → MACHINE_DATA
-4. Security/authority patterns → AUTHORITY or SECURITY
-5. Git/hash patterns → CANONICAL_STATE
-6. Benchmark patterns → BENCHMARK
-7. Repetitive/duplicate content → NOISE or PROGRESS
-8. Directory listing → DISCOVERY
-9. Test output → SUCCESS_SUMMARY or FAILURE
-10. Default → UNKNOWN
-
-**Confidence below threshold → UNKNOWN → RAW** (I5).
-
-The classifier also returns `inline_required_facts`: a list of fact strings that
-must be present in any transformed output.
-
-### Step 3: Load Profile
-
-The active profile (default, fioos, or fioideias) is loaded.
-`profile.get_policy(evidence_class, mode)` returns an allowed disposition set
-and a transform whitelist.
-
-Profiles may restrict but never expand the core taxonomy table.
-
-### Step 4: Check Protected Invariants
-
-`invariants.check()` examines the evidence class and policy for invariant violations:
-- AUTHORITY or SECURITY → force RAW (I7)
-- UNKNOWN → force RAW (I5)
-- FAILURE → force RAW (I6 escalation if unexpected)
-- MACHINE_DATA + non-lossless transform → force RAW (I8)
-
-Any invariant that fires returns `InvariantResult(forced=True, disposition=RAW, reason=...)`.
-
-### Step 5: Select Disposition
-
-If invariants did not force RAW, select from allowed dispositions based on
-evidence class and mode. V0 dispositions: RAW, TRANSFORM, ESCALATE_TO_RAW.
-
-### Step 6: Write RAW Store First
-
-Before any transform attempt, the raw content is written to the RAW store.
-This guarantees recovery even if the transform subsequently fails.
-
-### Step 7: Run Candidate Transform
-
-The transform registry selects the appropriate transform based on evidence class
-and whitelisted transforms. Transform is called with content + metadata.
-
-**Fail-open**: Any exception → catch and return RAW.
-
-### Step 8: Validate Output
-
-The validator checks:
-- Transform output is text (not None, not binary garbage)
-- For MACHINE_DATA: the output re-parses correctly (I8)
-- The output contains all `inline_required_facts` (I4)
-
-Validation failure → RAW.
-
-### Step 9: Economic Size Check
-
-If `len(transformed) >= len(raw)`: return RAW (I9).
-
-This is a hard rule. A transform that does not compress loses to RAW.
-
-### Step 10: Inline Fact Verification
-
-Recheck that all `inline_required_facts` are present in `transformed.content`.
-If any are missing: return RAW (I4).
-
-(This is a second check after validation — belt and suspenders for I4.)
-
-### Step 11: Emit Metrics
-
-Record `FilterMetrics` to the JSONL log:
-- `raw_bytes`, `visible_bytes`, `raw_token_estimate`, `visible_token_estimate`
-- `transform_duration_ms`, `decision`, `evidence_class`, `mode`
-
-### Step 12: Return FilterResult
-
-Returns `FilterResult` with:
-- `content` (visible output)
-- `disposition`
-- `raw_ref` (always — even for RAW dispositions)
-- `raw_sha256`
-- `transform_id` (if transformed)
-- `policy_decision`
-- `evidence_class`
-- `metrics`
-
----
-
-## RAW Store Design
-
-**Location**: `~/.fiofilter/raw/` (outside repo; configurable via `FIOFILTER_RAW_STORE`)
-
-**Layout**:
-```
-{raw_store_root}/
-  objects/
-    {sha256[0:2]}/
-      {sha256}        ← immutable content blob (binary, no extension)
-  meta/
-    {sha256[0:2]}/
-      {sha256}.json   ← metadata sidecar
-  index.jsonl         ← append-only reference log
-```
-
-**Write protocol** (atomic):
-1. Compute SHA-256 of content bytes
-2. Check if `objects/{prefix}/{sha256}` already exists → if yes, skip write (dedup)
-3. Write content to `objects/{prefix}/{sha256}.tmp`
-4. Rename `.tmp` → final path (atomic on same volume)
-5. Write metadata sidecar
-6. Append to `index.jsonl`
-
-**Recovery**: Read `objects/{prefix}/{sha256}`, verify SHA-256 == `raw_ref.sha256`.
-
-**V0 constraints**: No deletion. No network. No external DB.
-
----
-
-## Evidence Taxonomy — Disposition Table
-
-| Evidence Class | EXPLORE | BUILD | PROVE |
-|---|---|---|---|
-| NOISE | TRANSFORM | TRANSFORM | TRANSFORM |
-| DISCOVERY | TRANSFORM | TRANSFORM | RAW |
-| PROGRESS | TRANSFORM | TRANSFORM | RAW |
-| SUCCESS_SUMMARY | TRANSFORM | TRANSFORM | RAW |
-| DIAGNOSTIC | TRANSFORM | RAW | RAW |
-| FAILURE | RAW | RAW | RAW |
-| CANONICAL_STATE | RAW | RAW | RAW |
-| MACHINE_DATA | lossless-only | lossless-only | RAW |
-| AUTHORITY | RAW | RAW | RAW |
-| SECURITY | RAW | RAW | RAW |
-| BENCHMARK | RAW | RAW | RAW |
-| UNKNOWN | RAW | RAW | RAW |
-
----
-
-## Modes
-
-| Mode | Purpose | Effect |
-|---|---|---|
-| EXPLORE | Discovery tasks, broad searches, repetitive output | Unlocks TRANSFORM for NOISE/DISCOVERY/PROGRESS |
-| BUILD | Default development mode | Standard taxonomy table |
-| PROVE | Security, authority, benchmarks, failures | Most classes forced to RAW |
-
-Modes influence policy. They do not grant authority. They cannot override invariants.
-
----
-
-## Metrics — Unit Boundaries
-
-The following are NOT equivalent and MUST be tracked separately (I14, I15):
-
-| Metric | Unit |
+# FioFilter architecture — hardened V0
+
+The public entry point is `fiofilter.engine.process(ToolResult(...))`. It consumes
+bytes already captured by another tool. It does not execute commands or intercept
+Codex. M02 supersessions are recorded in `DECISIONS.md`.
+
+## Pipeline
+
+1. Validate byte input and policy enums. Assess sensitivity using full content,
+   metadata and the caller declaration. Decide persistence independently.
+2. Classify the entire input. No 16 KiB prefix sampling. Nonzero exit wins;
+   credential signals, explicit failures, security findings, authority, warnings,
+   canonical state and benchmarks precede low-risk reduction eligibility.
+3. Intersect the selected Python profile with canonical `DefaultProfile` policy.
+   Check invariants after selecting the actual transform ID.
+4. Restrict eligibility for incomplete input, unsupported content hints, stderr,
+   unknown stream identities and Git command metadata. Metadata never establishes
+   that output is safe to compress. Unknown profiles return RAW.
+5. Prepare disk or reference-owned ephemeral RAW recovery before T01. If storage
+   is forbidden or preparation fails, return RAW; never fabricate a disk reference.
+6. Run T01 only for eligible NOISE/PROGRESS. Validate bytes, strict size reduction,
+   inline facts and their occurrences, and independent visible decoding == RAW.
+7. Return bytes, metadata, per-result metrics and a content-free in-memory audit.
+   An explicitly requested non-sensitive JSONL log is written before returning;
+   log failure falls back to RAW and is reported in the returned audit.
+
+Operational exceptions in classification, policy, store, transform, validation or
+logging return original bytes with an audit reason. Invalid non-byte API input is
+a programmer error and raises TypeError: there are no original bytes to return.
+Process termination, memory exhaustion beyond a return path, and hostile OS behavior
+are outside the ordinary exception guarantee.
+
+## Evidence policy and profiles
+
+`fiofilter/profiles/*.py` is the only operational policy source. YAML copies were
+removed. `DefaultProfile` is the upper bound; overlays cannot add eligibility.
+At current V0, FioOS/FioIdeias have the same effective T01 scope as the hardened
+core, while retaining distinct project identities. They do not have an independent
+policy table requiring synchronization.
+
+NOISE requires every line to match the finite known-boilerplate grammar. It may
+use T01 in all modes. PROGRESS requires every line to match a known progress or
+noise grammar and may use T01 in EXPLORE/BUILD. Other classes are RAW in current
+V0. Discovery, diagnostics and success output require future consumer contracts;
+this is a transform-scope limit, not a claim they are universally irreducible.
+
+There is no session object, mutable mode state or one-way escalation. A failure
+forces RAW on that result and never locks later calls into PROVE or RAW.
+
+## Sensitivity and persistence
+
+| Disposition | Meaning |
 |---|---|
-| `raw_bytes` | bytes |
-| `visible_bytes` | bytes |
-| `raw_token_estimate` | ~tokens (approximation: chars/4) |
-| `visible_token_estimate` | ~tokens |
-| `transform_duration_ms` | milliseconds |
-| `corrective_retrieval_required` | boolean/count |
-| `model_turns` | turns (mission-level, future) |
+| PERSIST | Explicit request plus caller NON_SENSITIVE assessment; detector may veto |
+| EPHEMERAL | Default; immutable RAW bytes held in the returned RawRef only |
+| DO_NOT_PERSIST | RAW visibility with no archive reference and no persistent audit |
 
-A local `visible_bytes < raw_bytes` does NOT imply fewer model turns or better
-whole-mission economics. P11 evidence: turn reduction (6→0 turns) produced
-−49.93% tokens; P3 evidence: static-context optimization produced −27.03%.
+Sensitivity is UNKNOWN / NON_SENSITIVE / SENSITIVE, independently of the twelve
+evidence classes. A public vulnerability finding can be SECURITY with allowed
+persistence; a credential embedded in boilerplate is SENSITIVE and cannot acquire
+persistence permission from any evidence class. The detector is heuristic and
+scans metadata too; absence of a match is never a NON_SENSITIVE determination.
 
----
+No redaction, encryption, global in-memory history, OS memory locking or retention
+engine is implemented. Caller handling, swap and crash dumps are not controlled.
+Low-level `RawStore.write` is itself an explicit disk-storage operation for
+assessed non-sensitive data, with a detector backstop. It does not save source,
+command, session or inline facts. Engine users should use ToolResult's explicit
+policy instead of bypassing it with low-level writes.
 
-## Anti-Patterns — What FioFilter Must Never Become
+## Disk RAW store
 
-1. **RTK clone**: Do not compress by command name without evidence classification.
-   RTK's failure mode (destroying diagnostic/canonical evidence) is well-documented.
+Default configured root is `~/.fiofilter/raw/`, overridable with
+`FIOFILTER_RAW_STORE`. Creating/importing a store handle writes nothing.
 
-2. **CCA clone**: Do not compress without guaranteeing 100% inline critical fact preservation.
-   CCA achieved 96/137 (70.1%) — insufficient.
+- `objects/<two hex chars>/<sha256>`: original raw bytes.
+- `meta/<two hex chars>/<sha256>.json`: schema 2, RAW SHA-256 and exact byte length.
+- No index, event log or command metadata archive in the store.
 
-3. **Ratio optimizer**: Do not optimize for the highest compression ratio.
-   The 4 genuinely eligible outputs in the P14 corpus produced 0% reduction.
-   Ratio is a lagging indicator of value, not a target.
+Write a unique temporary file in the destination directory, flush and fsync it,
+then publish using `os.link` with no overwrite. The temporary name is unlinked
+on normal success/failure. Same-directory creation ensures the same volume.
+Both simultaneous writers verify the published bytes and metadata before success.
+This requires hard-link support, tested on the CI filesystems; unsupported filesystems
+raise and the engine returns RAW. No overwrite fallback exists.
 
-4. **Conservative by default**: NOISE should be aggressively compressed.
-   Conservatism at the exploration boundary wastes context.
+Dedup verifies existing content; corruption is never silently repaired. Reads
+validate the digest and ignore the supplied path hint, using the store root and
+validated lowercase SHA-256. Disabling verification is rejected. Object/metadata
+symlinks are rejected; a trusted, private store root and parent directories are
+assumed. This is not an adversarial filesystem sandbox.
 
-5. **LLM-dependent**: No AI in V0 pipeline. Deterministic classification first.
+Metadata is separately and atomically published. Interrupted publication can
+leave a complete blob with no sidecar: byte recovery still works, `read_meta`
+returns None, and a later explicit write may reconstruct missing derived metadata.
+Corrupt or inconsistent metadata raises; missing blobs raise. An attempted disk
+write may leave a blob even when metadata fails; returned audit reports
+`FAILED_MAY_HAVE_BLOB`, never falsely claims DO_NOT_PERSIST after that write. There is no claim
+of a transaction covering both files or power-loss durability of directory entries.
+A killed process can leave a private temporary file; V0 does not scavenge it.
 
----
+M01 stores may already contain secrets and contextual metadata. M02 neither
+scans nor deletes those archives automatically. Legacy sidecar schemas are rejected
+explicitly; intact blobs remain byte-recoverable. Use a fresh store root for schema 2.
 
-## V0 Scope Boundary
+## T01 v2
 
-V0 implements: RAW store + types + invariants + classifier stub + engine + T01 + metrics + tests.
+The header is `[[FIOFILTER:T01:v2]]` followed by LF. An unchanged source line is
+followed by a separate `[[FIOFILTER:T01 count=N first=F last=L]]` marker and LF.
+N includes the first occurrence; F/L are inclusive 1-based original line positions.
+All raw source lines containing `[[FIOFILTER:` decline transformation.
 
-V0 does NOT implement: Codex hooks, MCP, proxy, GUI, LLM, T02-T05 (candidates only), auto-learning.
+Only exact consecutive byte-identical LF/CRLF lines fold; order, line ending style,
+unique lines and unterminated tails survive. Invalid UTF-8, NUL, ANSI/control
+sequences and bare CR decline. Marker/header overhead must pay for itself.
+`decode_visible` rejects malformed bounds and has a bounded output allocation.
+The engine compares decoded bytes to RAW independently of disk/ephemeral recovery.
+T01 is a representation for a human/model, never a machine-format minifier.
+
+## Metadata, batching and truncation
+
+Input/output carry source, command, session, exit code, stream and known-truncated
+flag in memory. Process stdout/stderr as separate results when boundaries are
+available. `combined` describes already combined input; FioFilter cannot infer
+lost interleaving or repair upstream truncation. No batching/session architecture
+is implemented. The caller retains source/event identity and ordering.
+
+## Economics
+
+`raw_bytes` and `visible_bytes` count content bytes, including T01 header/markers.
+They exclude the Python object, RAW archive and any downstream transport envelope.
+Serializing the entire object or ephemeral RAW bytes to a model would defeat local
+reduction; no such transport integration has been implemented or measured.
+
+`utf8_bytes_div_4_ESTIMATE` uses bytes/4, not Unicode characters/4 or a tokenizer.
+`transform_duration_ms` measures apply() only, excluding store/classifier/validator
+and logging. Actual model tokens, turns, corrective retrieval and RAW recovery
+counts are optional externally supplied metrics; None means unknown, not zero.
+No automatic predictive economics or whole-mission savings are claimed.

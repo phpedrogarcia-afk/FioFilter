@@ -38,6 +38,8 @@ The classification layer must be auditable. Invariant I11 codifies this.
 
 ## D003 — RAW Is Immutable and Byte-Recoverable
 
+**M02 status**: Unconditional persistence rationale SUPERSEDED by M02-D001; store mechanics by M02-D004.
+
 Once persisted, a RAW store entry is never modified or deleted. Recovery
 must be byte-exact (SHA-256 verified). Invariant I1 + I3 codify this.
 
@@ -151,6 +153,8 @@ inspectability matters more than performance.
 
 ## D011 — RAW Is Written Before Any Transform Attempt
 
+**M02 status**: QUALIFIED by M02-D001: permitted disk or ephemeral recovery first; sensitive results remain RAW without archive.
+
 The RAW store write happens before the transform is attempted, not after.
 
 **Rationale**: If the transform throws an exception, the RAW store entry must
@@ -162,6 +166,8 @@ a transform failure leaves no recovery path. Belt-and-suspenders for I3.
 ---
 
 ## D012 — T02 (Template Folding) Deferred to M02
+
+**M02 status**: M02 implementation schedule SUPERSEDED by M02-D006: T02–T05 remain deferred.
 
 T02 (repeated-template folding) is a transform candidate but is NOT implemented
 in V0.
@@ -190,3 +196,156 @@ durable collaboration surface for Antigravity, Codex local, Codex web, and
 future tooling.
 
 **Date**: M01 / 2026-09-15
+
+---
+
+# M02 — Foundation audit and hardening
+
+The M01 entries above remain historical. The following supersessions govern
+current runtime behavior; they do not retroactively change what M01 implemented.
+
+## M02-D001 — Independent sensitivity and persistence
+
+- **QUESTION**: Does evidence requiring RAW authorize persistent storage?
+- **EVIDENCE**: M01 engine wrote every output; a generated inert bearer-shaped
+  probe became SECURITY/RAW and created a disk blob. Metadata stored command,
+  session and inline facts. D003/D011 assumed unconditional persistence.
+- **DECISION**: Sensitivity is orthogonal to the unchanged twelve-class taxonomy.
+  Engine defaults to reference-owned EPHEMERAL recovery. Detected/declared
+  sensitivity forces RAW/DO_NOT_PERSIST, no archive or persistent audit. PERSIST
+  requires explicit request plus caller NON_SENSITIVE assessment, subject to veto.
+  The explicit low-level disk write API rejects detector matches and documents its
+  assessed-input precondition. No universal non-sensitivity inference is made.
+- **WHY**: Preserve visible evidence without silently building a secret archive.
+  Public security findings and credential material have different storage needs.
+- **ALTERNATIVES_REJECTED**: Unconditional disk writes; extra evidence classes;
+  encryption/key management; automatic redaction that changes evidence; global
+  ephemeral history. Detection alone is not proof of safe persistence.
+- **REVERSIBILITY**: Add separately approved persistence backends later without
+  changing evidence classes. Existing M01 archives are not automatically deleted
+  or migrated. Supersedes D003's always-complete store and qualifies D011: prepare
+  permitted recovery before transforming, never persist solely because RAW is required.
+
+## M02-D002 — One operational profile source
+
+- **QUESTION**: Which of Python and YAML controls policy?
+- **EVIDENCE**: Only Python was loaded; YAML files were independent declarations
+  with no loader or drift test. NOISE/PROVE also differed between prose and runtime.
+- **DECISION**: Remove `profiles/*.yaml`. Python `DefaultProfile` is the core upper
+  bound; engine intersects overlays with it. FioOS delegates where current T01
+  scope coincides; FioIdeias retains its stub identity. Test every class/mode/profile
+  subset and absence of YAML operational copies. Unknown profiles fail to RAW.
+- **WHY**: Small deterministic policy surface, no silent decorative configuration.
+- **ALTERNATIVES_REJECTED**: YAML loader dependency; a generation pipeline for three
+  redundant policy files; trusting profiles to uphold I12 without engine guards.
+- **REVERSIBILITY**: A future canonical external format needs an explicit migration
+  and validation relationship. This implements D005, not a weakening of it.
+
+## M02-D003 — Full evidence boundary and bounded T01 eligibility
+
+- **QUESTION**: Can repetition/prefix inspection prove that output is safe to fold?
+- **EVIDENCE**: M01 transformed an ERROR after 16 KiB, PASS + warning and repeated
+  payment records. DIAGNOSTIC had no classifier branch. A permissive profile applied
+  T01 to JSON because the selected transform was not actually rechecked under I8.
+- **DECISION**: Inspect all bytes; protect mixed failure/diagnostic signals before
+  low-risk classification. Strictly handle invalid UTF-8/NUL and inspect normalized
+  ANSI text without changing returned bytes. Require complete known noise/progress
+  grammar for T01. Limit T01's engine contract to NOISE/PROGRESS, intersect policies,
+  retain source/stream/exit/truncation metadata, and fail operational exceptions to RAW.
+- **WHY**: A single matching line or repetition ratio is not proof about the rest.
+- **ALTERNATIVES_REJECTED**: Longer prefix sampling; arbitrary repeated text as NOISE;
+  unrestricted T01 on success/diagnostic/discovery/machine output; RAW for all inputs.
+- **REVERSIBILITY**: Extend grammars using labeled workload evidence; other classes
+  await specific transform contracts. Supersedes M01 broad T01 policy, not D009's
+  aggressive exploration principle.
+
+## M02-D004 — No-clobber storage and content-only metadata
+
+- **QUESTION**: Are M01 atomicity, dedup and metadata claims established?
+- **EVIDENCE**: Fixed `.tmp` names raced; rename could overwrite on POSIX; dedup
+  skipped hash verification; sidecars/index mixed content identity with first-event
+  context; `verify=False` bypassed integrity and RawRef paths were trusted.
+- **DECISION**: Unique same-directory temporary files, file fsync, `os.link` atomic
+  no-clobber publication, verify on write/dedup/read, validate addresses, ignore
+  external reference paths. Schema-2 sidecars contain only SHA/length/schema; remove
+  index and event metadata. Missing sidecar is explicit and reconstructable;
+  corruption/legacy schema is an error, intact blob recovery remains independent.
+- **WHY**: Minimize state and secret-bearing metadata without claiming a two-file
+  transaction or universal filesystem durability.
+- **ALTERNATIVES_REJECTED**: Overwrite rename/replace; shared temp names; SQLite or
+  distributed locks; silent corruption repair; retaining redundant event index.
+- **REVERSIBILITY**: Another proven publication primitive may replace hard links.
+  Unsupported filesystems fail to RAW. Existing M01 blobs remain readable by hash;
+  contextual sidecars are not silently migrated or deleted. Power-loss durability,
+  hostile parent directories and kill-time temporary scavenging remain outside V0.
+
+## M02-D005 — Audit and metric truth
+
+- **QUESTION**: What is observed, estimated, persisted or merely proposed?
+- **EVIDENCE**: M01 labeled byte length/4 as chars/4; apply timing covered other
+  stages; missing actual token/turn fields; recovery defaulted to unmeasured zero;
+  persistent logs omitted profile/invariant rationale and could raise outside fallback.
+- **DECISION**: Label `utf8_bytes_div_4_ESTIMATE`; measure apply only. Add optional
+  supplied model tokens, turns, corrective retrieval and recovery counts, default
+  None. Return an in-memory decision audit always; disk logging is explicit and
+  skipped for DO_NOT_PERSIST. Log failure returns RAW with a returned failure reason.
+- **WHY**: Distinguish local economics from mission observations and avoid audit
+  becoming a secondary sensitive-data archive.
+- **ALTERNATIVES_REJECTED**: Invented mission savings, automatic token billing
+  claims, retention/prediction engines, unconditional persistent audit.
+- **REVERSIBILITY**: Add real tokenizer/mission integrations under separate approval.
+  Supersedes M01 I16 unconditional disk logging; preserves D008/I14/I15 unit boundaries.
+
+## M02-D006 — Versioned T01 representation, no JSON minification
+
+- **QUESTION**: Does RAW recovery prove visible reversibility or marker safety?
+- **EVIDENCE**: M01's inline marker could collide with literal output; count prose
+  contradicted count-1 implementation; tests recovered from the store without
+  decoding visible output. T04 documents treated parse equality as enough.
+- **DECISION**: T01 v2 has reserved header/marker syntax, exact run count including
+  first, 1-based inclusive source boundaries, unchanged first line, LF/CRLF/tail
+  handling and strict bounded decoding. Reject literal collisions, unsafe controls,
+  overhead without savings, lost inline occurrences and unequal reconstructed bytes.
+  T02–T05 remain DEFERRED; parse equivalence is not universal consumer compatibility.
+- **WHY**: Separate two independent recovery claims and make representations auditable.
+- **ALTERNATIVES_REJECTED**: Ambiguous appended marker; assuming identical lines have
+  no material multiplicity; implementing T04 because parsing is convenient.
+- **REVERSIBILITY**: v2 is explicitly versioned; M01 visible markers are not decoded
+  as v2. RAW blobs remain original bytes. Supersedes D012's M02 implementation schedule
+  for T02/T03/T04; no new transform is authorized by this mission.
+
+## M02-D007 — Stateless modes and safe aggressive frontiers
+
+- **QUESTION**: Is mode/session complexity premature or PROVE over-conservative?
+- **EVIDENCE**: Inspection found no session engine, mutable escalation or mode
+  mutation. Actual Default/FioOS policy denied NOISE in PROVE despite stated allowance;
+  the test accepted any nonempty result and hid the discrepancy.
+- **DECISION**: Keep existing stateless per-call modes; failure changes disposition,
+  not later calls. Enable known NOISE/T01 in PROVE for every profile. Record
+  SAFE_AGGRESSIVE_FRONTIER for all classes and profile limits without implementing it.
+- **WHY**: Avoid inventing a session architecture or letting evidence discipline
+  degrade into permanent pass-through behavior.
+- **ALTERNATIVES_REJECTED**: Removing valuable mode policy; permanent RAW after a
+  failure; speculative session machinery; new reduction mechanisms during M02.
+- **REVERSIBILITY**: A separately approved session architecture can compose these
+  stateless calls. Supersedes mode-escalation prose, preserves D009.
+
+## M02-D008 — Portable canonical verification and precise claims
+
+- **QUESTION**: How can Codex Web and Windows Antigravity trust the handoff?
+- **EVIDENCE**: M01 editable-install backend path was nonexistent; Windows tests
+  mostly used host temp paths; docs claimed specifications/stubs where code existed,
+  universal properties without sufficient tests, and corpus replay without a loader.
+- **DECISION**: Correct build backend to setuptools.build_meta; pin pytest 8.3.5
+  and remove unused pytest-cov dev dependency. Minimal standard Windows 2022 and
+  Ubuntu 24.04 CI on Python 3.9 executes editable install and canonical pytest command.
+  Pin action SHAs, read-only permissions, no credentials retained, cache or artifacts.
+  Rewrite current docs with scoped guarantees and retain annotated M01 donor history.
+- **WHY**: Exercise actual Windows behavior and minimum Python, while preserving
+  precise baseline/final evidence in GitHub. No branch-protection setting is implied.
+- **ALTERNATIVES_REJECTED**: Large CI matrix, caches/artifacts without need, global
+  agent configuration, pretending local Linux tests prove Windows compatibility,
+  silently rewriting M01 decisions or claiming historical corpus reproduction.
+- **REVERSIBILITY**: CI versions/dependency pins can be revised through review.
+  Workflow results prove only the installed/tested SHA and runner corpus; integration,
+  universal semantics and whole-mission economics require future evidence.

@@ -1,22 +1,12 @@
-"""
-fiofilter.metrics — Per-result economics logging.
+"""Separate per-result byte estimates and externally supplied mission observations.
 
-Design principles (I14, I15):
-  - All six metric dimensions are tracked separately.
-  - Token estimates are approximations (chars / 4). Never billing figures.
-  - Local byte reduction ≠ token reduction ≠ model turn savings.
-  - Metrics are emitted for every decision, including RAW pass-through.
-  - Logged to JSONL for later mission-level analysis.
-
-Log location:
-  Default: ~/.fiofilter/metrics.jsonl
-  Override: FIOFILTER_METRICS_LOG env var
+Logging is opt-in and content-free through the engine; None means unmeasured.
+The UTF-8 bytes/4 heuristic is an ESTIMATE, never actual/billing token truth.
 """
 
 from __future__ import annotations
 
 import json
-import os
 import pathlib
 import time
 from typing import Optional
@@ -27,15 +17,11 @@ from fiofilter.types import Disposition, EvidenceClass, FilterMetrics, Mode
 # Never claim this equals a real tokenizer output (I15).
 _CHARS_PER_TOKEN: float = 4.0
 
-_DEFAULT_METRICS_LOG = pathlib.Path.home() / ".fiofilter" / "metrics.jsonl"
-_ENV_VAR = "FIOFILTER_METRICS_LOG"
-
-
 def estimate_tokens(content: bytes) -> float:
     """
     Approximate token count.
 
-    Uses chars/4 heuristic — a deliberate approximation.
+    Uses UTF-8 bytes/4 heuristic — a deliberate approximation.
     This is NOT equivalent to provider billing tokens (I15).
     """
     return len(content) / _CHARS_PER_TOKEN
@@ -49,7 +35,10 @@ def make_metrics(
     mode: Mode,
     transform_duration_ms: float = 0.0,
     corrective_retrieval_required: Optional[bool] = None,
-    raw_recovery_count: int = 0,
+    raw_recovery_count: Optional[int] = None,
+    actual_model_tokens: Optional[int] = None,
+    model_turns: Optional[int] = None,
+    corrective_retrievals: Optional[int] = None,
 ) -> FilterMetrics:
     """
     Construct a FilterMetrics instance.
@@ -71,14 +60,10 @@ def make_metrics(
         mode=mode,
         corrective_retrieval_required=corrective_retrieval_required,
         raw_recovery_count=raw_recovery_count,
+        actual_model_tokens=actual_model_tokens,
+        model_turns=model_turns,
+        corrective_retrievals=corrective_retrievals,
     )
-
-
-def _get_log_path() -> pathlib.Path:
-    env_val = os.environ.get(_ENV_VAR)
-    if env_val:
-        return pathlib.Path(env_val)
-    return _DEFAULT_METRICS_LOG
 
 
 def log_metrics(
@@ -87,24 +72,27 @@ def log_metrics(
     transform_id: Optional[str] = None,
     session_id: Optional[str] = None,
     log_path: Optional[pathlib.Path] = None,
+    audit: Optional[dict] = None,
 ) -> None:
     """
     Append a metrics record to the JSONL log.
 
     The log is append-only. Each line is a JSON object.
-    Metrics are logged for every decision, including RAW (I16 requires this).
+    With an explicit path, callers may log RAW or TRANSFORM metrics.
+    The engine supplies I16 in memory and suppresses sensitive disk audit.
 
     Args:
         metrics: The FilterMetrics to log.
         raw_sha256: SHA-256 of the raw content (for correlation with RAW store).
         transform_id: The transform applied, if any.
-        session_id: Optional session identifier.
+        session_id: Legacy argument; never persisted (metadata minimization).
         log_path: Override log path (for testing).
     """
     if log_path is None:
-        log_path = _get_log_path()
+        return  # Persistence must be explicitly requested.
+    log_path = pathlib.Path(log_path)
 
-    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
 
     record = {
         "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -113,13 +101,18 @@ def log_metrics(
         "visible_bytes": metrics.visible_bytes,
         "raw_token_estimate": round(metrics.raw_token_estimate, 1),
         "visible_token_estimate": round(metrics.visible_token_estimate, 1),
-        # NOTE: token estimates are approximations (chars/4), NOT billing metrics (I15)
+        # NOTE: token estimates are approximations (UTF-8 bytes/4), NOT billing metrics (I15)
         "transform_duration_ms": round(metrics.transform_duration_ms, 2),
         "decision": metrics.decision.value,
         "evidence_class": metrics.evidence_class.value,
         "mode": metrics.mode.value,
         "transform_id": transform_id,
-        "session_id": session_id,
+        "token_estimate_method": metrics.token_estimate_method,
+        "actual_model_tokens": metrics.actual_model_tokens,
+        "model_turns": metrics.model_turns,
+        "corrective_retrievals": metrics.corrective_retrievals,
+        "raw_recovery_count": metrics.raw_recovery_count,
+        "audit": audit or {},
         "corrective_retrieval_required": metrics.corrective_retrieval_required,
         "byte_reduction_pct": (
             round((1.0 - metrics.visible_bytes / metrics.raw_bytes) * 100, 2)

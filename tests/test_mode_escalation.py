@@ -29,17 +29,11 @@ class TestFailureEscalationInAllModes:
 
 
 class TestProveModeLockdown:
-    def test_noise_in_prove_is_raw(self, noise_tool_result, tmp_raw_store, tmp_metrics_log):
-        """PROVE mode locks most classes to RAW."""
+    def test_noise_in_prove_is_transformed(self, noise_tool_result, tmp_raw_store, tmp_metrics_log):
         result = process(noise_tool_result, mode=Mode.PROVE,
                          raw_store=tmp_raw_store, metrics_log_path=tmp_metrics_log)
-        # NOISE in PROVE: taxonomy says TRANSFORM, but check_prove_mode overrides.
-        # (DefaultProfile returns T01 for NOISE, but invariant check_prove_mode fires.)
-        # This may be RAW or TRANSFORM depending on how prove_mode is applied.
-        # NOISE is allowed TRANSFORM in PROVE by the default taxonomy (not in _RAW_IN_PROVE).
-        # Let's verify only that content is valid.
-        assert isinstance(result.content, bytes)
-        assert len(result.content) > 0
+        assert result.disposition == Disposition.TRANSFORM
+        assert len(result.content) < len(noise_tool_result.content)
 
     def test_discovery_in_prove_is_raw(self, tmp_raw_store, tmp_metrics_log):
         """DISCOVERY in PROVE mode → RAW."""

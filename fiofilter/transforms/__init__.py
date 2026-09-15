@@ -8,7 +8,7 @@ T03, T04, T05 are CANDIDATES defined in docs/ARCHITECTURE.md.
 They are NOT implemented in V0. Any code attempting to import
 them from this package in V0 will raise ImportError.
 
-To add a transform in M02+:
+Only after a separately authorized post-M02 mission:
   1. Implement in t0N_name.py following the Transform ABC
   2. Add to _REGISTRY below
   3. Write test oracle in tests/test_transforms.py
@@ -31,7 +31,7 @@ _REGISTRY: Dict[str, Type[Transform]] = {
 # T01 is NOT lossless for machine data (folds lines, may break structured formats).
 # T04 (JSON minification) is a candidate but NOT yet proven or implemented.
 LOSSLESS_TRANSFORM_IDS: frozenset = frozenset([
-    # "T04",  # JSON minification — add when implemented and tested in M02
+    # "T04",  # JSON minification — requires independent contract and approval
 ])
 
 

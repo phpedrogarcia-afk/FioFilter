@@ -45,10 +45,10 @@ class TestProfilesCannotWeakenInvariants:
         assert result.disposition in (Disposition.RAW, Disposition.ESCALATE_TO_RAW)
 
     @pytest.mark.parametrize("profile_id", PROTECTED_PROFILES)
-    def test_unknown_profile_falls_back_to_default(
+    def test_unknown_profile_returns_raw(
         self, profile_id, tmp_raw_store, tmp_metrics_log
     ):
-        """Unknown profile ID falls back to default safely."""
+        """Unknown profile ID forces RAW safely."""
         tr = ToolResult(content=b"xyzzy\n", source="shell")
         result = process(tr, mode=Mode.EXPLORE, profile_id="nonexistent_profile",
                          raw_store=tmp_raw_store, metrics_log_path=tmp_metrics_log)
@@ -66,4 +66,6 @@ class TestFioOSProfileAdditionalRestrictions:
         result = process(tr, mode=Mode.BUILD, profile_id="fioos",
                          raw_store=tmp_raw_store, metrics_log_path=tmp_metrics_log)
         # May be RAW due to classification or profile — either is acceptable
-        assert isinstance(result.content, bytes)
+        assert result.evidence_class == EvidenceClass.DIAGNOSTIC
+        assert result.disposition == Disposition.RAW
+        assert result.content == content

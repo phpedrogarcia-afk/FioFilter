@@ -5,7 +5,7 @@ FioIdeias is an idea-evolution/creative project. Evidence characteristics
 differ from FioOS (less authority/canonical content, more DISCOVERY/PROGRESS).
 
 This profile is a stub in V0. It falls back to default behavior.
-Define project-specific restrictions in M02 once the FioIdeias workload
+Define project-specific restrictions in a later mission once the FioIdeias workload
 is characterized.
 """
 
@@ -27,5 +27,5 @@ class FioIdeaisProfile(BaseProfile):
 
     def get_policy(self, evidence_class: EvidenceClass, mode: Mode) -> Policy:
         # V0 stub: delegate to default profile
-        # M02: characterize FioIdeias workload and add specific policies
+        # Future approved mission: characterize FioIdeias workload and add specific policies
         return _delegate.get_policy(evidence_class, mode)
