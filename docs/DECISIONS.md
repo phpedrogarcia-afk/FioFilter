@@ -349,3 +349,57 @@ current runtime behavior; they do not retroactively change what M01 implemented.
 - **REVERSIBILITY**: CI versions/dependency pins can be revised through review.
   Workflow results prove only the installed/tested SHA and runner corpus; integration,
   universal semantics and whole-mission economics require future evidence.
+
+## M03-D001 — Executable corpus harness and provenance separation
+
+- **QUESTION**: How should real historical coding-agent outputs be ingested without
+  violating privacy or coupling core FioFilter to proprietary agent logs?
+- **EVIDENCE**: Real Codex sessions contain credentials, tokens, and private paths.
+  83 calls in canonical session `01a02f96-42a2-7a80-b8bc-6d066d0e322f` contained
+  sensitive patterns. Standalone P14 CCA corpus files were not preserved on disk.
+- **DECISION**: Establish a generic `fiofilter.corpus` schema separating Source Data,
+  Independent Oracle Labels, and Derived Metrics. Ingestion reads caller-specified local
+  files strictly outside the repository. Laboratory extraction from Codex logs is
+  isolated in `scripts/extract_codex_corpus.py`. Commit only synthetic, non-sensitive
+  fixtures to Git.
+- **WHY**: Satisfies zero-leakage invariant while providing a rigorous, reproducible
+  empirical test harness.
+- **ALTERNATIVES_REJECTED**: Committing raw user outputs to Git; hardcoding Codex
+  log schemas into the core engine; fabricating a substitute and calling it "P14".
+- **REVERSIBILITY**: High. The corpus schema is versioned; external paths are caller-defined.
+
+## M03-D002 — Empirical observation of T01 on real workloads
+
+- **QUESTION**: Does T01 (exact duplicate consecutive-line folding) provide practical
+  context reduction on real coding agent executions?
+- **EVIDENCE**: Replay of 50 stratified real-workload tool outputs from FioOS canonical
+  session `01a02f96` yielded 0.0% reduction. Real tool outputs (search, build, test,
+  directory listings) do not contain identical consecutive lines due to advancing numbers,
+  timestamps, varying match snippets, and execution wrapper headers.
+- **DECISION**: Record that T01 is an edge-case noise filter rather than a general
+  reduction engine. Do not weaken T01's exact equality contract to force compression.
+- **WHY**: Preserves evidence integrity. Compressing non-identical lines requires
+  distinct domain-specific contracts and oracles.
+- **ALTERNATIVES_REJECTED**: Weakening T01 with fuzzy/heuristic matching; claiming
+  T01 reduces real workloads based on synthetic benchmarks.
+- **REVERSIBILITY**: High. T01 remains unchanged; new transforms are evaluated independently.
+
+## M03-D003 — Selection of M04 frontier: search match header deduplication
+
+- **QUESTION**: Where is the largest safe reduction frontier in real coding agent
+  workloads for M04 investigation?
+- **EVIDENCE**: Analysis of 21 safe missed opportunities in the real workload sample
+  revealed that 60.01% of compressible bytes (97.5 KB in sample) originate from repeated
+  file path headers in search (`rg`/`grep`) outputs. Grouping search matches under file
+  path headers preserves 100% of line numbers, matched code, and file paths with near-zero
+  risk of corrective retrieval.
+- **DECISION**: Select `DUPLICATED_HEADERS` as the recommended frontier for M04.
+  Defer progress folding and pass-list aggregation to later evaluations.
+- **WHY**: Combines the largest single context opportunity (60%) with the lowest evidence
+  risk and highest determinism.
+- **ALTERNATIVES_REJECTED**: Speculative multi-transform implementation in M03; selecting
+  progress folding (higher ambiguity in intermediate states); prioritizing pass-list
+  aggregation (smaller byte share).
+- **REVERSIBILITY**: Completely reversible; M04 will evaluate `DUPLICATED_HEADERS` in an
+  isolated mission branch before implementation.
+

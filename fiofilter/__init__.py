@@ -21,6 +21,7 @@ from fiofilter.types import (
     RawRef,
     FilterMetrics,
 )
+from fiofilter.corpus import CorpusEntry, load_corpus, replay_corpus
 from fiofilter.engine import process
 
 __version__ = "0.0.1.dev0"
@@ -36,4 +37,7 @@ __all__ = [
     "FilterResult",
     "RawRef",
     "FilterMetrics",
+    "CorpusEntry",
+    "load_corpus",
+    "replay_corpus",
 ]
