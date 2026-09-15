@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.whl
+.venv/
+venv/
+env/
+.env
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Type checking
+.mypy_cache/
+.pyright/
+
+# RAW store — never pollute the repository
+# Default location is outside the repo (~/.fiofilter/raw/)
+# If a developer sets FIOFILTER_RAW_STORE to a path inside this repo,
+# add it to .gitignore manually.  The default is already outside.
+.fiofilter_raw/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Distribution / packaging
+MANIFEST

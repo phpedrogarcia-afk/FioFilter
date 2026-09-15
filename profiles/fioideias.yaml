@@ -1,0 +1,31 @@
+# FioFilter — FioIdeias Profile (stub)
+# Policy overlay: placeholder for FioIdeias project workload
+# This file is informational. The authoritative implementation is
+# fiofilter/profiles/fioideias.py
+
+profile_id: fioideias
+description: FioIdeias project profile (stub — delegates to default in V0)
+
+# Status: STUB
+# FioIdeias workload has not been characterized yet.
+# Define project-specific policies in M02 after empirical workload analysis.
+
+# Placeholder dispositions (same as default):
+dispositions:
+  NOISE:           [TRANSFORM_T01, TRANSFORM_T01, TRANSFORM_T01]
+  DISCOVERY:       [TRANSFORM_T01, TRANSFORM_T01, RAW]
+  PROGRESS:        [TRANSFORM_T01, TRANSFORM_T01, RAW]
+  SUCCESS_SUMMARY: [TRANSFORM_T01, TRANSFORM_T01, RAW]
+  DIAGNOSTIC:      [TRANSFORM_T01, RAW, RAW]
+  FAILURE:         [RAW, RAW, RAW]
+  CANONICAL_STATE: [RAW, RAW, RAW]
+  MACHINE_DATA:    [LOSSLESS_ONLY, LOSSLESS_ONLY, RAW]
+  AUTHORITY:       [RAW, RAW, RAW]
+  SECURITY:        [RAW, RAW, RAW]
+  BENCHMARK:       [RAW, RAW, RAW]
+  UNKNOWN:         [RAW, RAW, RAW]
+
+# M02 TODO:
+# - Analyze FioIdeias Tool Results for evidence class distribution
+# - Identify FioIdeias-specific inline-required fact patterns
+# - Add project-specific policies here and in fiofilter/profiles/fioideias.py

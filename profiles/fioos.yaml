@@ -1,0 +1,34 @@
+# FioFilter — FioOS Profile
+# Policy overlay: additional protections for FioOS project workload
+# This file is informational. The authoritative implementation is
+# fiofilter/profiles/fioos.py
+
+profile_id: fioos
+description: FioOS project profile with additional evidence protections
+
+# Changes from default:
+# DIAGNOSTIC: always RAW (FioOS diagnostics often contain canonical state)
+# DISCOVERY: RAW in BUILD and PROVE (FioOS trees contain canonical structure)
+# SUCCESS_SUMMARY: RAW in BUILD and PROVE (test results may include hashes)
+# MACHINE_DATA: always RAW (FioOS machine data is never transformed)
+
+dispositions:
+  NOISE:           [TRANSFORM_T01, TRANSFORM_T01, RAW]
+  DISCOVERY:       [TRANSFORM_T01, RAW, RAW]       # stricter than default
+  PROGRESS:        [TRANSFORM_T01, TRANSFORM_T01, RAW]
+  SUCCESS_SUMMARY: [TRANSFORM_T01, RAW, RAW]       # stricter than default
+  DIAGNOSTIC:      [RAW, RAW, RAW]                 # stricter than default
+  FAILURE:         [RAW, RAW, RAW]
+  CANONICAL_STATE: [RAW, RAW, RAW]
+  MACHINE_DATA:    [RAW, RAW, RAW]                 # stricter than default
+  AUTHORITY:       [RAW, RAW, RAW]
+  SECURITY:        [RAW, RAW, RAW]
+  BENCHMARK:       [RAW, RAW, RAW]
+  UNKNOWN:         [RAW, RAW, RAW]
+
+# FioOS-specific evidence notes:
+# - Gateway admission records → AUTHORITY → RAW
+# - Mutation evidence → FAILURE or CANONICAL_STATE → RAW
+# - Adversarial evidence → FAILURE → RAW
+# - Canonical Git evidence → CANONICAL_STATE → RAW
+# - Unexpected test failures → FAILURE → RAW (I6)
