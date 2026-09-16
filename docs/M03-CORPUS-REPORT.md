@@ -45,6 +45,14 @@ The source JSONL is not committed and is unavailable in Codex Web, so these
 figures were not independently recounted in M03-R1. They remain historical local
 observations, not Git-reconstructable results.
 
+M03-R3 identifies a further provenance conflict that this R1 report could not
+resolve. Historical M03 material described an approximately 203,780,102-byte
+August rollout (`M03_SOURCE_A`), while R2 recorded a 16,076,013-byte March file
+with SHA-256 `d8ba8cb30d3cb3d958564b1509fa861460d3bfa9900c735a4d4a84f479a4bbcd`
+(`M03_SOURCE_B`). Both carry the same session identifier, but that does not prove
+content identity. Their relationship remains `UNKNOWN`; see
+`M03-R3-CLEAN-SEARCH-CORPUS.md`.
+
 The extractor's `total_calls_seen` counter has a precise, narrower meaning: the
 number of parseable JSONL payloads whose type is `custom_tool_call` and whose
 `call_id` is truthy. It increments before a matching output is found; it does not

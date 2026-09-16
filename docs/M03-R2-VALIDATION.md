@@ -12,9 +12,11 @@
 - **Mission Verdict**: `M03_R2_PASS_MORE_VALIDATION_REQUIRED`
 
 This document records the independent local review of historical Codex tool outputs
-from canonical session `01a02f96-42a2-7a80-b8bc-6d066d0e322f`, evaluating whether
-the heuristic reduction candidate `DUPLICATED_HEADERS` survives rigorous evidence
-review.
+from the artifact now designated `M03_SOURCE_B`, carrying session identifier
+`01a02f96-42a2-7a80-b8bc-6d066d0e322f`. R2 originally called it canonical. R3
+supersedes that provenance wording because a materially different historical
+artifact carries the same session identifier. The raw-byte review below remains
+an observation of Source B while artifact identity is unresolved.
 
 This mission strictly enforces:
 - **Zero M04 transform implementation** (no new transforms).
@@ -25,19 +27,26 @@ This mission strictly enforces:
 
 ## Corpus Identity and Integrity
 
-The evaluation was performed against the historical local sample and the complete
-canonical Codex session:
+The evaluation was performed against the historical local sample and one locally
+observed historical artifact:
 
 | Corpus Artifact | Path | Size (Bytes) | SHA-256 |
 |---|---|---|---|
 | Sample v1 | `C:\Users\phped\.fiofilter\corpus\m03_fioos_sample_v1.jsonl` | 629,778 | `19200bd30a688cd3cf8607bae0c21cf4eece4d9ca8fd696ae81138469986b9e2` |
 | Reviewed Sidecar | `C:\Users\phped\.fiofilter\corpus\m03_fioos_sample_v1.reviewed.jsonl` | 4,769 | `ef3267784f1a603cbe31c6a2b3445582f6e5cfa69b2ff92f4477c7f9999a4e93` |
-| Canonical Session | `C:\Users\phped\.codex\sessions\2026\03\08\01a02f96-42a2-7a80-b8bc-6d066d0e322f.jsonl` | 16,076,013 | `d8ba8cb30d3cb3d958564b1509fa861460d3bfa9900c735a4d4a84f479a4bbcd` |
+| `M03_SOURCE_B` local artifact | `C:\Users\phped\.codex\sessions\2026\03\08\01a02f96-42a2-7a80-b8bc-6d066d0e322f.jsonl` | 16,076,013 | `d8ba8cb30d3cb3d958564b1509fa861460d3bfa9900c735a4d4a84f479a4bbcd` |
 
 The sample contains 50 entries totaling 442,488 raw bytes (110,622.0 estimated
 tokens). The reviewed sidecar contains non-sensitive metadata and independently
 audited oracle decisions for all search-stratum entries without publishing raw
 source bytes.
+
+Earlier M03 material described `M03_SOURCE_A`: an approximately 203,780,102-byte
+rollout file under an August 2026 path and a longer `rollout-*` filename, with no
+recorded SHA-256. Source A and Source B share a session ID but have different
+documented paths, filenames and sizes. Their relationship is `UNKNOWN`; neither
+is declared canonical, superseding, derived, subset, superset or byte-identical.
+See `M03-R3-CLEAN-SEARCH-CORPUS.md`.
 
 ---
 
@@ -76,7 +85,11 @@ the raw-byte level:
 3. **`FIOOS-REAL-015` (4,203 bytes)**
    - *Command*: `rg` restricted to a single file (`fiofilter/engine.py`).
    - *Forensic Finding*: Exit code is 1. The output has line numbers only (`fiofilter/engine.py:42:...`), with no repeated path headers.
-   - *Invariant Enforced*: **Invariant I6 (Nonzero exit requires RAW)**. In ripgrep, exit code 1 indicates no match or partial error. Furthermore, single-file search exhibits zero duplicate header redundancy.
+   - *Invariant Enforced*: **Invariant I6 (Nonzero exit requires RAW)**. For a pure
+     ripgrep process, exit code 1 means no matches, not an execution error. The
+     historical record also contains output, so its wrapper/attribution cannot be
+     treated as clean ripgrep evidence. It remains RAW, and the single-file format
+     has no demonstrated duplicate-header opportunity.
 
 4. **`FIOOS-REAL-025` (1,267 bytes)**
    - *Command*: Shell execution containing `rg` in a multi-command script.
@@ -111,7 +124,9 @@ The original M03 extraction harness suffered from four methodological flaws:
 
 1. **Substring Command Matching**: The stratum classifier checked `if "rg " in command:` inside JavaScript tool invocation wrappers (`tools.exec_command({cmd: '...'})`). This matched scripts that merely mentioned `rg` in strings, comments, or composite shell pipelines (`cat; rg`).
 2. **Ignoring Upstream Truncation**: Records with `truncated: true` or upstream truncation markers were treated as normal output, ignoring Invariant I13. In the sample, two 40 KB truncated records (`002` and `010`) accounted for 80,307 of the 97,503 bytes (82.4%).
-3. **Ignoring Exit Codes**: Records with exit code 1 or shell failures (`015`, `025`, `030`) were evaluated for reduction, violating Invariant I6.
+3. **Ignoring Exit Codes**: Nonzero records were evaluated for reduction, violating
+   Invariant I6. Pure ripgrep exit 1 is specifically `NO_MATCH`; shell failure and
+   ripgrep exit >=2 are distinct error cases even though all remain RAW here.
 4. **Ignoring Mixed Command Streams**: Composite scripts producing both source files and search results (`050`) were grouped under search headers.
 
 ---
@@ -135,13 +150,14 @@ In the primary sample `m03_fioos_sample_v1.jsonl`, **zero bytes** of the claimed
 
 ## Authentic Phenomenon in Real Coding Sessions
 
-While the primary sample yielded 0 safe bytes due to extraction defects, an exhaustive
-audit of the complete historical session `01a02f96-42a2-7a80-b8bc-6d066d0e322f`
-(16.0 MB, 4,362 tool call events) revealed that **pure, untruncated `rg` calls with
-massive header redundancy DO exist** in real coding-agent workloads:
+While the primary sample yielded 0 safe bytes due to extraction defects, R2's
+local inspection of `M03_SOURCE_B` (16,076,013 bytes; 4,362 historically reported
+call events under the qualified counter semantics) observed pure, untruncated
+`rg` calls with repeated path prefixes:
 
-- **193 pure `rg` execution calls** were identified with exit code 0, no truncation,
-  and multi-file search output.
+- **193 apparent pure `rg` execution calls** were identified locally with exit code
+  0, no observed truncation, and multi-file search output. R3 preserves this as a
+  Source B observation pending reproduction by the dedicated extractor.
 - For example, call `call_s5Ou468Hxw0DAwMfUoXmoYyn` produced 131 search matches
   across 8 files, where each line repeated the full relative path prefix:
   `packages/core/src/indexing/indexer.ts:14:...`
@@ -149,8 +165,9 @@ massive header redundancy DO exist** in real coding-agent workloads:
 - In such pure searches, grouping matches under file headers offers substantial token
   savings without evidence loss.
 
-Therefore, the candidate **cannot be dismissed as non-existent**, but it was
-severely mis-sampled and overclaimed in M03.
+Therefore, the candidate **cannot be dismissed as non-existent in Source B**, but
+it was severely mis-sampled and overclaimed in M03. This does not prove the same
+phenomenon exists in Source A or authorize a transform.
 
 ---
 
@@ -169,7 +186,7 @@ fingerprints and edge cases must be recognized and tested:
    sequences exist in path and match text.
 5. **Binary Match Notices**: Lines like `Binary file dist/app.exe matches` lack line
    numbers and match content.
-6. **Nonzero Exit Codes**: ripgrep exit code 1 (no match) and exit code 2 (error)
+6. **Nonzero Exit Codes**: ripgrep exit code 1 (no match) and exit code >=2 (error)
    must remain strictly RAW under Invariant I6.
 7. **Upstream Truncation**: Incomplete output must remain strictly RAW under
    Invariant I13.
@@ -242,7 +259,10 @@ Missed Opportunities:
 
 - `PRIMARY_SAMPLE_CONFIRMED_SAFE_BYTES = 0` (0.0%)
 - `PRIMARY_SAMPLE_DUPLICATED_HEADERS_VALIDATED = FALSE`
-- `CANONICAL_SESSION_SEARCH_REDUNDANCY_AUTHENTIC = TRUE` (193 instances)
+- `LOCAL_ARTIFACT_SEARCH_REDUNDANCY_OBSERVED = TRUE`
+- `LOCAL_ARTIFACT_PURE_RG_CANDIDATES = 193`
+- `SOURCE_ARTIFACT_IDENTITY_PENDING_RECONCILIATION = YES`
+- `CANONICAL_SESSION_PROOF = NO`
 - `CANDIDATE_STATUS = DUPLICATED_HEADERS_PARTIALLY_VALIDATED_MORE_EVIDENCE_REQUIRED`
 - `MISSION_VERDICT = M03_R2_PASS_MORE_VALIDATION_REQUIRED`
 

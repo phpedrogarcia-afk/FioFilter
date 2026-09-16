@@ -1,4 +1,4 @@
-# Test strategy — M02 foundation and M03-R1 corpus integrity
+# Test strategy — M02 foundation and M03 corpus integrity
 
 Run `python -m pytest tests/ -v` before and after changes. Test count is not a
 quality target. Assertions should detect material evidence/storage failures and
@@ -59,6 +59,14 @@ metrics, detector semantics, `rg --files` precedence, `0 failed`, and nonzero-ex
 precedence. The synthetic detector fixture uses an explicit inert placeholder;
 no real historical output or credential is committed.
 
+M03-R2 adds review-sidecar integrity and search-format counterexamples. M03-R3
+adds `test_search_corpus.py`: content-derived source fingerprints; same-session-ID
+artifact separation; structurally grounded exec/ripgrep recognition; rejection of
+composite, nonzero, truncated, mixed and unsupported outputs; Windows drive and
+UNC paths; line/column grammars; duplicate multiplicity; payload colons; LF/CRLF;
+and byte-exact parser round trips. End-to-end extraction tests use only temporary
+synthetic JSONL and verify separate clean/negative sets with no oracle assignment.
+
 These constitute **VERIFIED IN CURRENT TEST CORPUS**, not exhaustive semantic
 proof. See `M02-AUDIT.md` for scoped guarantee classifications and measured results.
 
@@ -81,7 +89,9 @@ repository branch-protection required check; no administration settings are chan
 
 No original FioOS/P14/M03 real corpus is bundled or replayed. The v4 loader and
 replay harness are implemented, but historical M03 percentages were not
-reproduced in M03-R1 and their original labels were not independent. No universal
+reproduced in M03-R1 and their original labels were not independent. The R3 search
+parser proves only its two synthetic grammar contracts; the historical clean-corpus
+run and independent review remain local future work. No universal
 classifier/secret detection, original merged-stream
 interleaving, upstream truncation recovery, arbitrary filesystem hard-link support,
 OS crash/power-loss durability, hostile filesystem protection, Python-version-wide

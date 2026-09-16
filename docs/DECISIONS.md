@@ -528,3 +528,50 @@ current runtime behavior; they do not retroactively change what M01 implemented.
 - **REVERSIBILITY**: A dedicated search corpus and approved grammar contract can
   advance the candidate to fully validated status in a future mission.
 
+## M03-R3-D001 — Artifact identity requires content provenance — qualifies M03-R2-D001
+
+- **QUESTION**: Does a shared session identifier establish that the approximately
+  203,780,102-byte August rollout described by M03 and the 16,076,013-byte March
+  artifact inspected by R2 are the same historical source?
+- **EVIDENCE**: The repository records different paths, filenames, dates and sizes
+  for the same session ID. Only the smaller R2 artifact has a recorded SHA-256.
+  Neither artifact is available to Codex Web for byte comparison, and no derivation
+  or containment record exists.
+- **DECISION**: Designate the historical descriptions `M03_SOURCE_A` and
+  `M03_SOURCE_B`; set `SESSION_PROVENANCE_CONFLICT=YES` and `RELATION=UNKNOWN`.
+  Re-scope the 193-call finding to a local observation of Source B pending a fresh
+  fingerprinted run. Every future historical JSONL receives a content-derived
+  artifact ID, SHA-256, byte size, local-only path, record/timestamp counts when
+  measured, extractor version, observation date and explicit prior relationship.
+- **WHY**: Session IDs identify logical sessions, not byte identity. Calling an
+  unreconciled artifact canonical would transfer evidence across an unproved link.
+- **ALTERNATIVES_REJECTED**: Assume identical bytes from the session ID; silently
+  choose either path as canonical; delete R2's useful observation; claim that one
+  artifact supersedes or contains the other without hashes and comparison evidence.
+- **REVERSIBILITY**: A later local comparison may replace `UNKNOWN` with one allowed
+  relationship while preserving both source records and the evidence used.
+
+## M03-R3-D002 — Narrow fail-closed ripgrep characterization before M04
+
+- **QUESTION**: What is the smallest executable boundary that can prepare a clean
+  search corpus without implementing or pre-authorizing header compression?
+- **EVIDENCE**: The stratified M03 sample admitted composite, truncated, nonzero,
+  source-read and failure outputs. Ripgrep has distinct exit semantics and multiple
+  incompatible output grammars. Set/semantic equality would lose order,
+  multiplicity, delimiters and line endings.
+- **DECISION**: Add the isolated `M03_SEARCH_CORPUS_V1` extractor and byte parser.
+  Admit one structurally identified, shell-free ripgrep command with exit 0, no
+  truncation/failure/sensitivity-screen match, and only
+  `RG_STANDARD_PATH_LINE_TEXT` or `RG_PATH_LINE_COLUMN_TEXT`. Require
+  `encode(parse(raw)) == raw`. Exclude headings, context, JSON, ANSI, binary notices
+  and unknown syntax. Extract all clean candidates plus bounded deterministic
+  negative controls and a per-grammar size-quantile review selection. Assign no
+  oracle label and do not connect this code to the transform engine.
+- **WHY**: A narrow recognized grammar with exact reconstruction supplies useful
+  local evidence while failing closed on every format not yet contracted.
+- **ALTERNATIVES_REJECTED**: Reuse the flawed 50-entry sample; substring-match `rg`;
+  normalize text; parse paths by naïve colon splitting; support every ripgrep mode;
+  implement `DUPLICATED_HEADERS` during corpus preparation.
+- **REVERSIBILITY**: Future missions may add separately named grammars only with
+  synthetic counterexamples, negative controls and exact roundtrip evidence. No
+  current transform or policy behavior changes.

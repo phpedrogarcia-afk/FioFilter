@@ -8,7 +8,8 @@
 The implemented surface is a Python API that accepts already captured bytes.
 It does not intercept Codex, run shell commands, install hooks, or call a model.
 M02 hardened the engine. M03 added an offline corpus harness; M03-R1 corrected
-its oracle methodology. No mission after M01 has added a compression mechanism.
+its oracle methodology, R2 performed local review, and R3 adds a narrow clean
+search-corpus characterizer. No mission after M01 has added a compression mechanism.
 
 ## Development
 
@@ -94,9 +95,12 @@ Legacy M03 v3 corpora are rejected by default. Explicit
 validate them. A detector no-match remains `DETECTOR_NO_MATCH`, not
 `NON_SENSITIVE`. Real historical outputs remain local and outside Git.
 
-The previous `DUPLICATED_HEADERS` ranking is a heuristic candidate awaiting local
-independent review and a complete format/evidence contract. It is not authorization
-to implement M04.
+R2 observed 193 apparent pure `rg` candidates in one local artifact, but R3 found
+that artifact's identity conflicts with an older, much larger historical source
+description carrying the same session ID. The relationship remains `UNKNOWN`.
+The dedicated R3 extractor fingerprints the actual source and supports only two
+byte-exact plain-text grammars for characterization. This is not authorization to
+implement `DUPLICATED_HEADERS` or start M04.
 
 ## Project map
 
@@ -105,9 +109,11 @@ to implement M04.
 - [Decisions, including explicit M01/M03 supersessions](docs/DECISIONS.md)
 - [M02 audit and guarantee classifications](docs/M02-AUDIT.md)
 - [M03-R1 corpus/oracle audit](docs/M03-CORPUS-REPORT.md)
+- [M03-R2 local validation](docs/M03-R2-VALIDATION.md)
+- [M03-R3 clean-search corpus specification](docs/M03-R3-CLEAN-SEARCH-CORPUS.md)
 - `fiofilter/profiles/*.py`: sole operational policy source; YAML duplicates removed
 - `tests/`: synthetic regressions; `tests/corpus/`: executable schema and review protocol
 
 [GitHub](https://github.com/phpedrogarcia-afk/FioFilter) is the handoff surface for
-Codex Web and local Antigravity. M03-R1 stops before local corpus re-review, M04
-selection or transform expansion.
+Codex Web and local Antigravity. M03-R3 stops before the local fingerprinted corpus
+run, independent grammar review, M04 selection or transform expansion.

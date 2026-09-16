@@ -11,6 +11,11 @@ Usage:
       --output "C:\\Users\\phped\\.fiofilter\\corpus\\m03_fioos_sample_v1.jsonl" \\
       --sample-size 50 \\
       --project-tag "FIOOS"
+
+The August rollout path above is the historical `M03_SOURCE_A` description. It
+is not declared byte-identical to the smaller March artifact inspected in R2;
+their relationship is `UNKNOWN`. New search validation uses
+`scripts/extract_rg_corpus.py` and a content-derived artifact fingerprint.
 """
 
 from __future__ import annotations
