@@ -751,3 +751,26 @@ current runtime behavior; they do not retroactively change what M01 implemented.
 - **WHY**: Maintains absolute precision and transparency in denominator reporting.
 - **ALTERNATIVES_REJECTED**: Conflating universal content repetition with targeted duplicate clusters; redefining M05 historical observations retroactively.
 - **REVERSIBILITY**: High. Pure epistemic and documentation clarification.
+
+## M07-D001 — Specialization of read receipts, plane separation, and mtime spoof defense
+
+- **QUESTION**: How should FioFilter specialize reexposure for file reads without premature context suppression or false-negative keyword gating?
+- **EVIDENCE**: Controlled live experimentation and historical replay across Source A (`01a02f96`, 206,427,325 B, SHA-256 `bc4561d4...`) established:
+  - **Plane Separation**: M06 showed that generic text classification flags benign documentation discussing errors as failures. Decoupling Plane A (Source Freshness / Byte Identity) from Plane B (Context Policy Authority) allows documentation to achieve `FRESHNESS_PROVEN = YES` while keeping `ACTIVE_SUPPRESSION_AUTHORIZED = NO`.
+  - **Mtime Spoof Defense**: Live synthetic lab confirmed that `MTIME_UNCHANGED != CONTENT_UNCHANGED`. An adversary modifying bytes and restoring original timestamps is caught by SHA-256 content verification (`MTIME_SPOOF_DOES_NOT_BYPASS_HASH = PASS`). Level F4 requires exact byte equality.
+  - **Read Grammar & View Coverage**: Out of 490 FILE_READ events in Source A, 489 (99.8%) have structured source identity and 459 (93.7%) have structured view identity.
+  - **Historical Candidate Reconciliation**: 31 events achieved `F1_HISTORICAL_OUTPUT_IDENTITY` (184,684 B). 17 events are economic candidates (`HISTORICAL_IDENTICAL_READ_CANDIDATE`, 184,194 B raw, 2,432 B reference, 181,762 B avoided, 98.68% hypothetical savings). 14 events are uneconomic 35 B polling log tails rejected under the no-expansion invariant. Reconciled against M06 (32 events, 168,727 B) by shifting from adjacent path pairing to session-scoped view-aware tracking.
+  - **Behavioral Authority**: Active context suppression carries salience and recency risks because model reasoning may depend on in-context token presence.
+- **DECISION**:
+  - Decouple Plane A (source freshness and byte identity) from Plane B (context suppression policy authority).
+  - Require SHA-256 and byte equality (Level F4) for live freshness proof; treat mtime/size strictly as fast rejection hints.
+  - Enforce strict no-expansion on hypothetical references (`[[FIOFILTER:READREF:v1 ...]]`).
+  - Maintain `ACTIVE_READ_REFERENCE_SUPPRESSION = NO` (zero runtime suppression or modification).
+  - Record `BEHAVIORAL_EQUIVALENCE = UNKNOWN`, `WHOLE_MISSION_SAVINGS = UNKNOWN`.
+  - Select `NEXT_LANE = READ_RECEIPT_RUNTIME_SHADOW_HARNESS`.
+- **WHY**: Establishes deterministic mathematical certainty for file content freshness without compromising model reasoning, evidence integrity, or authority.
+- **ALTERNATIVES_REJECTED**:
+  - Using mtime or git HEAD as proof of content invariance (vulnerable to spoofing, race conditions, and uncommitted edits).
+  - Active runtime suppression in M07 (violates evidence gating before behavioral A/B proof).
+  - Keyword-based error filtering on file bodies (causes false-negative exclusion on technical documentation).
+- **REVERSIBILITY**: High. Pure shadow specialization; generic engine runtime remains completely unmodified.
