@@ -650,3 +650,37 @@ current runtime behavior; they do not retroactively change what M01 implemented.
 - **REVERSIBILITY**: Removing the registry entry removes the isolated feature;
   no engine/profile path currently depends on it. A later metadata mission may
   add automatic routing without changing this representation or decoder contract.
+
+## M04-R1-D001 — Real historical replay validation of T02_RG_STANDARD_GROUP_V1
+
+- **QUESTION**: Does the production transform `T02_RG_STANDARD_GROUP_V1` successfully
+  replay on 100% of the real historical clean candidates that authorized it,
+  preserving exact byte recovery, zero false admissions, and measurable reduction?
+- **EVIDENCE**:
+  - Replayed all 23 real clean candidates from `C:\Users\phped\.fiofilter\corpus\m03_rg_clean_candidates_v1.jsonl`
+    (SHA-256 `c711a07f75f734bdbaacda35b42fa45e0075bb1c5a49f4b9c5eb7f6e396c768c`).
+  - Production transform produced 16 `TRANSFORMED` and 7 `RAW_NO_ECONOMIC_GAIN` (`VALID_GRAMMAR_NO_ECONOMIC_GAIN`).
+    Zero safety rejections (`RAW_SAFETY_OR_GRAMMAR_REJECTION = 0`).
+  - Byte-exact roundtrip verified: 16 / 16 transformed entries passed `decode_visible(transformed) == raw` byte-for-byte
+    (`TRANSFORMED_ROUNDTRIP_FAILURES = 0`).
+  - Structural fact preservation: `MATCH_DROPPING = 0`, `FILE_DROPPING = 0`, `ORDER_CHANGE = 0`,
+    `MULTIPLICITY_CHANGE = 0`, `PAYLOAD_CHANGE = 0`, `PATH_CHANGE = 0`, `LINE_NUMBER_CHANGE = 0`.
+  - Negative controls: Replayed 34 negative controls from `m03_rg_negative_controls_v1.jsonl`;
+    `REAL_NEGATIVE_FALSE_TRANSFORMS = 0`.
+  - Headroom adversarial challenges: Replayed 18 challenge cases; `AMBIGUOUS_CASES_TRANSFORMED = 0`.
+  - Real economics: 62,373 raw bytes -> 51,577 visible bytes, saving 10,796 bytes (17.31% net reduction,
+    or 2,699 tokens saved under `utf8_bytes_div_4_ESTIMATE`).
+  - Simulation-to-production overhead: 6,556 bytes (10.51% of raw), reflecting robust version marker header (39 B),
+    length-framed path headers (~49-55 B per path run) to eliminate colon and Windows-path ambiguity, and
+    strict no-expansion fallback on 4 borderline cases.
+  - Engine metadata status: `ENGINE_METADATA_GATE_REMAINS = YES`; generic `apply()` remains disabled.
+- **DECISION**: Formally record `M04_TRANSFORM_REAL_REPLAY_VALIDATED = YES`. Confirm that
+  `T02_RG_STANDARD_GROUP_V1` satisfies all empirical correctness and safety gates on real workloads.
+  Maintain the engine metadata gate without automatic runtime routing until trusted provenance is available.
+- **WHY**: The production transform satisfies every invariant on 100% of real historical clean candidates
+  without requiring a single code change, while safely failing open to RAW when framing eliminates economic gain.
+- **ALTERNATIVES_REJECTED**:
+  - Forcing production representation to match unadorned M03 simulation (rejected: length-framing is essential for safe Windows/colon parsing).
+  - Prematurely auto-activating T02 in generic engine or profiles without runtime producer evidence (rejected: preserves separation of transform correctness from integration architecture).
+  - Delaying approval for further replay iterations (rejected: evidence on all 23 real candidates is unanimous).
+- **REVERSIBILITY**: Replay validation confirms existing behavior without changing code or APIs; future missions may integrate runtime metadata propagation without altering the validated transform or decoder.
