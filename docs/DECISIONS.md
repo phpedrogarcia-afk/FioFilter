@@ -700,3 +700,18 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   - Aggressive discovery pruning or pre-filtering (high risk of evidence loss and model degradation on reasoning context).
   - Immediate implementation of hooks, proxy, or cache in M05 (violates mission scope and rigorous empirical gating).
 - **REVERSIBILITY**: High. This decision selects research direction; no engine, profile, or transform code is modified.
+
+## M05-D002 — Epistemic scope of exact redelivery versus reference replacement
+
+- **QUESTION**: Does observation of 260,775 bytes of identical redelivery prove that replacing those deliveries with compact references is safe and preserves coding-agent task performance?
+- **EVIDENCE**: M05 established `EXACT_REDELIVERY_BYTES_OBSERVED = 260,775` across 205 events via exact content SHA-256 matching. While this demonstrates physical byte redelivery within the session, it does not evaluate whether consumer reasoning or task execution depends on the inline presence of the full text rather than an indirect reference.
+- **DECISION**: Formally record:
+  - `EXACT_REDELIVERY_BYTES_OBSERVED = 260,775`
+  - `PROVEN_IDENTICAL_REDELIVERY = YES`
+  - `PROVEN_SAFE_REFERENCE_REPLACEMENT = NO`
+  - `REFERENCE_SUPPRESSIBLE_BYTES = UNKNOWN_UNTIL_SHADOW_OR_AB`
+  - `WHOLE_MISSION_SAVINGS = UNKNOWN`
+  `NEXT_LANE` remains `REEXPOSURE_SHADOW`. Shadow evaluation must measure hypothetical reference eligibility under evidence and authority gates before any active suppression can be considered.
+- **WHY**: Preserves scientific rigor by distinguishing observed physical repetition from behavioral safety of context substitution.
+- **ALTERNATIVES_REJECTED**: Treating identical bytes as proof of safe reference substitution; claiming 260 KB of net context savings prior to shadow/A-B measurement.
+- **REVERSIBILITY**: High. Pure epistemic classification boundary; no runtime engine code is altered.

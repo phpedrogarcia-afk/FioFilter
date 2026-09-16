@@ -70,7 +70,11 @@ Evidence Tier: **`PROVEN_AVOIDABLE`** (Exact Redeliveries) / **`STRONG_DETERMINI
 - Exact redelivery events: **205**
 - Gross bytes in repeated deliveries: **447,645 bytes**
 - Unique content bytes (first delivery retained): **186,870 bytes**
-- **`PROVEN_REEXPOSURE_BYTES`**: **260,775 bytes** (~65,194 estimated tokens)
+- **`EXACT_REDELIVERY_BYTES_OBSERVED`**: **260,775 bytes** (~65,194 estimated tokens)
+- `PROVEN_IDENTICAL_REDELIVERY`: **YES** (Identical byte stream redelivered across 205 events)
+- `PROVEN_SAFE_REFERENCE_REPLACEMENT`: **NO** (Behavioral equivalence of replacing deliveries with references is unproven)
+- `REFERENCE_SUPPRESSIBLE_BYTES`: **UNKNOWN_UNTIL_SHADOW_OR_AB**
+- `WHOLE_MISSION_SAVINGS`: **UNKNOWN**
 
 ### Same-Path Rereads
 - Same-path read count: **490 calls**
