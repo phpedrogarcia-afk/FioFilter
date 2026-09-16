@@ -1,13 +1,13 @@
 # FioFilter orientation
 
 V0: an implemented Python evidence engine and deterministic T01 laboratory.
-M01 created code, not just skeletons. M02 audits and hardens that foundation.
+M01 created code, M02 hardened it, and M03-R1 hardened the offline corpus method.
 No Codex integration, MCP, hooks, proxy, GUI, LLM or automatic learning exists.
 
 ## Start here
 
 1. Inspect branch, HEAD, origin/main, status, recent commits and `AGENTS.md`.
-2. Read `docs/DECISIONS.md` including M02 supersessions, then the evidence contract.
+2. Read `docs/DECISIONS.md` including M02/M03-R1 supersessions, then the evidence contract.
 3. Run `python -m pytest tests/ -v` before code changes.
 4. Work on a mission branch; publish reviewable state through GitHub.
 
@@ -24,22 +24,25 @@ No Codex integration, MCP, hooks, proxy, GUI, LLM or automatic learning exists.
 - In-memory audit on every valid byte result; explicit optional JSONL audit.
 - Exact byte metrics, labeled byte-based token estimates, optional externally
   supplied model tokens/turns/retrieval/recovery observations.
+- Corpus schema v4 with distinct detector screening, heuristic suggestions,
+  independently reviewed oracle provenance and label-scoped replay metrics.
 - Synthetic tests and minimal Windows/Linux CI. See `docs/M02-AUDIT.md` for evidence.
 
 ## What does not exist
 
 T02 template folding, T03 PASS aggregation, T04 JSON minification, T05 delta,
-batch execution, original FioOS corpus import/replay, corrective-retrieval
-prediction and whole-mission A/B measurement remain deferred. An API processing
-already captured output cannot recover bytes truncated by its upstream caller.
+batch execution, a Git-bundled original FioOS corpus, corrective-retrieval
+prediction and whole-mission A/B measurement remain deferred. Local historical
+review and M04 selection are not complete. An API processing already captured
+output cannot recover bytes truncated by its upstream caller.
 
 ## Decisions and current limits
 
 Read `docs/ARCHITECTURE.md`, `docs/EVIDENCE-CONTRACT.md`, `docs/TEST-STRATEGY.md`,
-`docs/M02-AUDIT.md` and `docs/SAFE-AGGRESSIVE-FRONTIER.md`.
-`docs/DECISIONS.md` preserves D001–D013 and adds M02 decisions with explicit
-supersessions. `docs/DONOR-AUTOPSY.md` is historical M01 evidence, not a fresh
-upstream audit or an executable specification of current FioFilter.
+`docs/M02-AUDIT.md`, `docs/M03-CORPUS-REPORT.md` and
+`docs/SAFE-AGGRESSIVE-FRONTIER.md`. `docs/DECISIONS.md` preserves historical
+decisions and explicitly supersedes invalid M03 claims. `docs/DONOR-AUTOPSY.md`
+is historical M01 evidence, not a fresh upstream audit or executable specification.
 
 Detection cannot prove absence of arbitrary secrets/PII. Caller-assessed
 NON_SENSITIVE plus explicit PERSIST is a storage decision, never permission to
@@ -49,4 +52,11 @@ DO_NOT_PERSIST or after a returned ephemeral reference has been discarded.
 Current tests establish behavior in their corpus, not universal classification
 accuracy. Local reduction is not measured whole-mission savings. Future
 aggressive reduction candidates are recorded explicitly; none is authorized by
-its inclusion in that list. M02 ends before choosing M03.
+its inclusion in that list. `DUPLICATED_HEADERS` is only a heuristic candidate
+pending local independent review; do not start M04 from the historical ranking.
+
+Corpus replay must use source data only as engine input. Never inject oracle
+sensitivity or required facts into the subject under test. Detector no-match is
+not a non-sensitive assessment. Use only `ORACLE:*` metric scopes for reviewed
+claims; `HEURISTIC:*` scopes are diagnostic. Legacy v3 input requires explicit
+`M03_V3_AS_HEURISTIC` demotion.

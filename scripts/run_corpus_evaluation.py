@@ -25,17 +25,47 @@ def evaluate_corpus(corpus_path: str | pathlib.Path, mode_str: str = "BUILD", pr
 
     evaluated, summary = replay_corpus(entries, mode=mode, profile_id=profile_id)
 
-    # Calculate share of missed opportunities
-    total_missed_bytes = sum(b["raw_bytes"] for b in summary.missed_by_bucket.values())
-    missed_report = {}
-    for bucket_name, data in summary.missed_by_bucket.items():
-        share = round((data["raw_bytes"] / total_missed_bytes * 100.0), 2) if total_missed_bytes > 0 else 0.0
-        missed_report[bucket_name] = {
-            "entry_count": data["entry_count"],
-            "raw_bytes": data["raw_bytes"],
-            "estimated_tokens": round(data["estimated_tokens"], 1),
-            "share_of_missed_bytes_pct": share,
-            "sample_entries": data["sample_entries"],
+    label_scopes = {}
+    for scope, scoped in summary.metrics_by_label_scope.items():
+        total_missed_bytes = sum(
+            bucket["raw_bytes"] for bucket in scoped["missed_by_bucket"].values()
+        )
+        missed_report = {}
+        for bucket_name, data in scoped["missed_by_bucket"].items():
+            share = (
+                round(data["raw_bytes"] / total_missed_bytes * 100.0, 2)
+                if total_missed_bytes > 0
+                else 0.0
+            )
+            missed_report[bucket_name] = {
+                "entry_count": data["entry_count"],
+                "raw_bytes": data["raw_bytes"],
+                "estimated_tokens": round(data["estimated_tokens"], 1),
+                "share_of_missed_bytes_pct": share,
+                "sample_entries": data["sample_entries"],
+            }
+        label_scopes[scope] = {
+            "claim_status": (
+                "INDEPENDENTLY_REVIEWED"
+                if scope.startswith("ORACLE:")
+                else "HEURISTIC_ONLY_NOT_SAFETY_PROOF"
+            ),
+            "entry_count": scoped["entry_count"],
+            "safety_comparison": {
+                "dangerous_false_transform_eligibility": scoped[
+                    "dangerous_false_transform_eligibility"
+                ],
+                "dangerous_entries": scoped["dangerous_entries"],
+                "safe_opportunity_missed": scoped["safe_opportunity_missed"],
+                "safe_match": scoped["safe_match"],
+                "unsafe_sensitivity_leak": scoped["unsafe_sensitivity_leak"],
+                "label_uncertain": scoped["label_uncertain"],
+            },
+            "t01_unapproved_grammar_entries": scoped[
+                "t01_unapproved_grammar_entries"
+            ],
+            "missed_opportunities": missed_report,
+            "confusion_matrix": scoped["predicted_vs_label_matrix"],
         }
 
     out = {
@@ -45,16 +75,16 @@ def evaluate_corpus(corpus_path: str | pathlib.Path, mode_str: str = "BUILD", pr
         "total_entries": summary.total_entries,
         "total_raw_bytes": summary.total_raw_bytes,
         "total_visible_bytes": summary.total_visible_bytes,
-        "total_raw_tokens": round(summary.total_raw_tokens, 1),
-        "total_visible_tokens": round(summary.total_visible_tokens, 1),
+        "total_raw_token_estimate": round(summary.total_raw_token_estimate, 1),
+        "total_visible_token_estimate": round(summary.total_visible_token_estimate, 1),
+        "token_estimate_method": summary.token_estimate_method,
         "local_byte_reduction_pct": summary.local_byte_reduction_pct,
-        "local_token_reduction_pct": summary.local_token_reduction_pct,
-        "safety": {
-            "dangerous_false_transform_eligibility": summary.dangerous_false_transform_eligibility,
-            "dangerous_entries": summary.dangerous_entries,
-            "safe_opportunity_missed": summary.safe_opportunity_missed,
-            "safe_match": summary.safe_match,
-            "unsafe_sensitivity_leak": summary.unsafe_sensitivity_leak,
+        "local_token_estimate_reduction_pct": summary.local_token_estimate_reduction_pct,
+        "measurement_scope": {
+            "raw_bytes": "exact bytes in loaded corpus entries",
+            "visible_bytes": "exact bytes returned by FioFilter replay",
+            "token_values": "local estimates, not actual/model/billing tokens",
+            "whole_mission_savings": "UNKNOWN",
         },
         "t01_performance": {
             "eligible_entries": summary.t01_eligible_entries,
@@ -62,11 +92,9 @@ def evaluate_corpus(corpus_path: str | pathlib.Path, mode_str: str = "BUILD", pr
             "raw_bytes": summary.t01_raw_bytes,
             "visible_bytes": summary.t01_visible_bytes,
             "marker_overhead_defeated_entries": summary.t01_marker_overhead_defeated_entries,
-            "unapproved_grammar_entries": summary.t01_unapproved_grammar_entries,
             "classes_affected": sorted(list(summary.t01_classes_affected)),
         },
-        "missed_opportunities": missed_report,
-        "confusion_matrix": summary.predicted_vs_oracle_matrix,
+        "label_scopes": label_scopes,
     }
     return out
 
@@ -91,18 +119,20 @@ def main() -> None:
     print(f"Corpus: {report['corpus_path']}")
     print(f"Mode: {report['mode']} | Profile: {report['profile_id']}")
     print(f"Total Entries: {report['total_entries']}")
-    print(f"Total Raw Bytes: {report['total_raw_bytes']} ({report['total_raw_tokens']} est. tokens)")
-    print(f"Total Visible Bytes: {report['total_visible_bytes']} ({report['total_visible_tokens']} est. tokens)")
+    print(
+        f"Total Raw Bytes: {report['total_raw_bytes']} "
+        f"({report['total_raw_token_estimate']} estimated tokens)"
+    )
+    print(
+        f"Total Visible Bytes: {report['total_visible_bytes']} "
+        f"({report['total_visible_token_estimate']} estimated tokens)"
+    )
     print(f"Local Byte Reduction: {report['local_byte_reduction_pct']}%")
-    print(f"Local Token Reduction: {report['local_token_reduction_pct']}%")
-    print("\n--- SAFETY AUDIT ---")
-    s = report["safety"]
-    print(f"DANGEROUS_FALSE_TRANSFORM_ELIGIBILITY: {s['dangerous_false_transform_eligibility']}")
-    print(f"UNSAFE_SENSITIVITY_LEAK: {s['unsafe_sensitivity_leak']}")
-    print(f"SAFE_OPPORTUNITY_MISSED: {s['safe_opportunity_missed']}")
-    print(f"SAFE_MATCH: {s['safe_match']}")
-    if s["dangerous_entries"]:
-        print(f"DANGEROUS ENTRIES: {s['dangerous_entries']}")
+    print(
+        "Local Token ESTIMATE Reduction: "
+        f"{report['local_token_estimate_reduction_pct']}% "
+        f"({report['token_estimate_method']})"
+    )
 
     print("\n--- T01 PERFORMANCE ---")
     t = report["t01_performance"]
@@ -110,21 +140,29 @@ def main() -> None:
     print(f"Transformed Entries: {t['transformed_entries']}")
     print(f"T01 Raw Bytes: {t['raw_bytes']} -> Visible Bytes: {t['visible_bytes']}")
     print(f"Marker Overhead Defeated Entries: {t['marker_overhead_defeated_entries']}")
-    print(f"Unapproved Grammar Repetition Entries: {t['unapproved_grammar_entries']}")
     print(f"Classes Affected: {t['classes_affected']}")
 
-    print("\n--- MISSED OPPORTUNITIES BY BUCKET ---")
-    for bucket, bdata in report["missed_opportunities"].items():
-        if bdata["entry_count"] > 0:
-            print(f"  {bucket}:")
-            print(f"    Entries: {bdata['entry_count']}")
-            print(f"    Raw Bytes: {bdata['raw_bytes']} ({bdata['estimated_tokens']} tokens)")
-            print(f"    Share of Missed Bytes: {bdata['share_of_missed_bytes_pct']}%")
-            print(f"    Sample Entries: {bdata['sample_entries']}")
-
-    print("\n--- ORACLE vs PREDICTED CLASS MATRIX ---")
-    for oracle_cls, preds in report["confusion_matrix"].items():
-        print(f"  Oracle [{oracle_cls}]: {dict(preds)}")
+    for scope, scoped in report["label_scopes"].items():
+        print(f"\n--- LABEL SCOPE: {scope} ---")
+        print(f"Claim status: {scoped['claim_status']}")
+        safety = scoped["safety_comparison"]
+        for name, value in safety.items():
+            print(f"{name}: {value}")
+        print(
+            "T01 unapproved grammar entries: "
+            f"{scoped['t01_unapproved_grammar_entries']}"
+        )
+        print("Missed opportunities:")
+        for bucket, bucket_data in scoped["missed_opportunities"].items():
+            if bucket_data["entry_count"]:
+                print(
+                    f"  {bucket}: {bucket_data['entry_count']} entries, "
+                    f"{bucket_data['raw_bytes']} bytes, "
+                    f"{bucket_data['share_of_missed_bytes_pct']}% of this scope"
+                )
+        print("Predicted vs label matrix:")
+        for label_class, predictions in scoped["confusion_matrix"].items():
+            print(f"  Label [{label_class}]: {dict(predictions)}")
 
 
 if __name__ == "__main__":

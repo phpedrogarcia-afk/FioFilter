@@ -2,8 +2,8 @@
 scripts/extract_codex_corpus.py — Laboratory extraction utility for Codex sessions.
 
 Extracts real tool results from Codex session JSONL logs, applies deterministic
-stratified sampling and sensitivity screening, and outputs CorpusEntry JSONL
-records to a user-specified path outside the repository.
+stratified sampling and sensitivity screening, and emits heuristic suggestions.
+It never manufactures independently reviewed oracle labels.
 
 Usage:
   python scripts/extract_codex_corpus.py \\
@@ -24,7 +24,12 @@ import re
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
-from fiofilter.corpus import CorpusEntry, CorpusOracleLabels, CorpusSourceData
+from fiofilter.corpus import (
+    CorpusEntry,
+    CorpusHeuristicSuggestion,
+    CorpusSensitivityScreening,
+    CorpusSourceData,
+)
 from fiofilter.sensitivity import contains_sensitive_material
 
 
@@ -40,24 +45,34 @@ STRATA_TARGETS_50 = {
 }
 
 
-def classify_call_stratum(inp: str, out: str) -> str:
+def _contains_test_failure(out: str) -> bool:
+    """Detect positive failure evidence without treating ``0 failed`` as a failure."""
+    return bool(
+        re.search(r"(?:^|\s)(?:[1-9]\d*)\s+(?:failed|failures?|errors?)\b", out, re.I)
+        or re.search(r"(?:^|\n)FAILED(?:\s|$)", out)
+        or "Traceback (most recent call last)" in out
+        or re.search(r"(?:^|\n)(?:AssertionError|ERROR:)(?:\s|$)", out)
+    )
+
+
+def classify_call_stratum(inp: str, out: str, exit_code: Optional[int] = None) -> str:
     """Classify tool call into a stratum based on command and output patterns."""
     c_lower = inp.lower()
     o_lower = out.lower()
 
     if any(k in c_lower for k in ("pytest", "python -m unittest", "cargo test", "npm test")):
-        if any(f in o_lower for f in ("failed", "failure", "error:", "traceback")):
+        if (exit_code is not None and exit_code != 0) or _contains_test_failure(out):
             return "test_failure"
         return "test_success"
 
     if "git " in c_lower or "git.exe" in c_lower:
         return "git"
 
-    if "rg " in c_lower or "grep " in c_lower:
-        return "search"
-
     if any(k in c_lower for k in ("rg --files", "dir ", "get-childitem", "ls ", "find ")):
         return "dir_list"
+
+    if "rg " in c_lower or "grep " in c_lower:
+        return "search"
 
     if any(k in c_lower for k in ("get-content", "cat ", "read_file", "type ")):
         return "file_read"
@@ -84,13 +99,13 @@ def extract_command_and_exit_code(inp: str, out: str) -> Tuple[Optional[str], Op
             cmd = lines[0][:120]
 
     # Try extracting exit code from json output
-    m_code = re.search(r'["\']exit_code["\']\s*:\s*(\d+)', out)
+    m_code = re.search(r'["\']exit_code["\']\s*:\s*(-?\d+)', out)
     if m_code:
         try:
             exit_code = int(m_code.group(1))
         except ValueError:
             pass
-    elif "Traceback (most recent call last)" in out or "Error:" in out or "FAILED" in out:
+    elif _contains_test_failure(out):
         exit_code = 1
     elif "Script completed" in out:
         exit_code = 0
@@ -98,18 +113,17 @@ def extract_command_and_exit_code(inp: str, out: str) -> Tuple[Optional[str], Op
     return cmd, exit_code
 
 
-def assign_initial_oracle(stratum: str, cmd: Optional[str], out: str, exit_code: Optional[int]) -> CorpusOracleLabels:
-    """Assign independent ground-truth oracle labels based on domain inspection."""
-    cmd_str = (cmd or "").lower()
-    out_str = out.lower()
+def suggest_initial_labels(
+    stratum: str, cmd: Optional[str], out: str, exit_code: Optional[int]
+) -> CorpusHeuristicSuggestion:
+    """Create an extractor heuristic for later independent review."""
 
     if exit_code is not None and exit_code != 0:
-        return CorpusOracleLabels(
+        return CorpusHeuristicSuggestion(
             evidence_class="FAILURE",
-            sensitivity="NOT_SENSITIVE",
             transform_eligibility="RAW_REQUIRED",
             inline_required_facts=[],
-            oracle_rationale="Non-zero exit code or error output requires RAW preservation.",
+            rationale="Non-zero exit code requires RAW preservation.",
         )
 
     if stratum == "git":
@@ -122,12 +136,11 @@ def assign_initial_oracle(stratum: str, cmd: Optional[str], out: str, exit_code:
         if m_commit:
             facts.append(m_commit.group(1))
 
-        return CorpusOracleLabels(
+        return CorpusHeuristicSuggestion(
             evidence_class="CANONICAL_STATE",
-            sensitivity="NOT_SENSITIVE",
             transform_eligibility="RAW_REQUIRED",
             inline_required_facts=facts,
-            oracle_rationale="Git canonical repository state must be preserved exactly.",
+            rationale="Heuristic: Git state is likely canonical evidence.",
         )
 
     if stratum == "test_success":
@@ -136,71 +149,64 @@ def assign_initial_oracle(stratum: str, cmd: Optional[str], out: str, exit_code:
         if m_pass:
             facts.append(m_pass.group(0))
 
-        return CorpusOracleLabels(
+        return CorpusHeuristicSuggestion(
             evidence_class="SUCCESS_SUMMARY",
-            sensitivity="NOT_SENSITIVE",
             transform_eligibility="SAFE_TO_REDUCE",
             inline_required_facts=facts,
-            oracle_rationale="Passing test summary; safe to reduce repetitive pass lines with fact retention.",
+            rationale="Heuristic candidate: passing test records may contain reducible repetition.",
             missed_opportunity_category="KNOWN_SUCCESS_RECORDS",
         )
 
     if stratum == "test_failure":
-        return CorpusOracleLabels(
+        return CorpusHeuristicSuggestion(
             evidence_class="FAILURE",
-            sensitivity="NOT_SENSITIVE",
             transform_eligibility="RAW_REQUIRED",
             inline_required_facts=[],
-            oracle_rationale="Test failure output contains essential diagnostic evidence.",
+            rationale="Heuristic: test failure output contains diagnostic evidence.",
         )
 
     if stratum == "dir_list":
-        return CorpusOracleLabels(
+        return CorpusHeuristicSuggestion(
             evidence_class="DISCOVERY",
-            sensitivity="NOT_SENSITIVE",
             transform_eligibility="SAFE_TO_REDUCE",
             inline_required_facts=[],
-            oracle_rationale="Directory enumeration; safe to reduce repetitive paths or file lists.",
+            rationale="Heuristic candidate: directory/path redundancy may be reducible.",
             missed_opportunity_category="DIRECTORY_OR_PATH_REDUNDANCY",
         )
 
     if stratum == "progress_build":
-        return CorpusOracleLabels(
+        return CorpusHeuristicSuggestion(
             evidence_class="PROGRESS",
-            sensitivity="NOT_SENSITIVE",
             transform_eligibility="SAFE_TO_REDUCE",
             inline_required_facts=[],
-            oracle_rationale="Repetitive build progress output; safe to fold.",
+            rationale="Heuristic candidate: progress output may be reducible.",
             missed_opportunity_category="REPETITIVE_PROGRESS",
         )
 
     if stratum == "search":
         # Search queries: often contains repeated file headers or match contexts
-        return CorpusOracleLabels(
+        return CorpusHeuristicSuggestion(
             evidence_class="DISCOVERY",
-            sensitivity="NOT_SENSITIVE",
             transform_eligibility="SAFE_TO_REDUCE",
             inline_required_facts=[],
-            oracle_rationale="Search results; safe to reduce duplicate path headers.",
+            rationale="Heuristic candidate: search output may contain duplicate path headers.",
             missed_opportunity_category="DUPLICATED_HEADERS",
         )
 
     if stratum == "file_read":
         # Full file reads of memory or source code require fidelity
-        return CorpusOracleLabels(
+        return CorpusHeuristicSuggestion(
             evidence_class="CANONICAL_STATE",
-            sensitivity="NOT_SENSITIVE",
             transform_eligibility="RAW_REQUIRED",
             inline_required_facts=[],
-            oracle_rationale="Source/memory document content must be preserved losslessly.",
+            rationale="Heuristic: source/document reads require fidelity.",
         )
 
-    return CorpusOracleLabels(
+    return CorpusHeuristicSuggestion(
         evidence_class="UNKNOWN",
-        sensitivity="NOT_SENSITIVE",
         transform_eligibility="RAW_REQUIRED",
         inline_required_facts=[],
-        oracle_rationale="Generic script or unclassified execution; requires RAW by default.",
+        rationale="Heuristic: unclassified execution requires RAW by default.",
     )
 
 
@@ -276,8 +282,8 @@ def extract_session_corpus(
                     sensitive_rejected += 1
                     continue
 
-                stratum = classify_call_stratum(inp, full_out)
                 cmd, exit_code = extract_command_and_exit_code(inp, full_out)
+                stratum = classify_call_stratum(inp, full_out, exit_code=exit_code)
 
                 strata_candidates[stratum].append({
                     "call_id": cid,
@@ -333,7 +339,7 @@ def extract_session_corpus(
                 truncated=False,
             )
 
-            oracle_labels = assign_initial_oracle(
+            heuristic_suggestion = suggest_initial_labels(
                 stratum=item["stratum"],
                 cmd=item["command"],
                 out=item["raw_bytes"].decode("utf-8", errors="replace"),
@@ -343,7 +349,22 @@ def extract_session_corpus(
             entry = CorpusEntry(
                 entry_id=entry_id,
                 source_data=source_data,
-                oracle_labels=oracle_labels,
+                oracle_labels=None,
+                heuristic_suggestion=heuristic_suggestion,
+                sensitivity_screening=CorpusSensitivityScreening(
+                    result="DETECTOR_NO_MATCH" if filter_sensitive else "NOT_RUN",
+                    method=(
+                        "fiofilter.sensitivity.contains_sensitive_material"
+                        if filter_sensitive
+                        else ""
+                    ),
+                    notes=(
+                        "No configured detector pattern matched; this is not a "
+                        "NON_SENSITIVE assessment."
+                        if filter_sensitive
+                        else "Sensitivity screening was disabled."
+                    ),
+                ),
                 tags=[project_tag.lower(), item["stratum"], "real_workload"],
             )
             entries.append(entry)

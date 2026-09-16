@@ -1,4 +1,4 @@
-# Test strategy — M02
+# Test strategy — M02 foundation and M03-R1 corpus integrity
 
 Run `python -m pytest tests/ -v` before and after changes. Test count is not a
 quality target. Assertions should detect material evidence/storage failures and
@@ -24,6 +24,11 @@ synthetic, inert data, never real credentials or private source material.
   audit I/O exceptions return original bytes and an explicit in-memory reason.
 - **Economics**: exact byte units, explicit token ESTIMATE method, optional supplied
   observations with None defaults and apply-only time; no mission-savings inference.
+- **Corpus oracle**: extractor suggestions are not ground truth. Reviewed labels
+  require provenance/reviewer/protocol, replay input excludes all label fields,
+  and comparisons are grouped by label scope.
+- **Sensitivity screening**: detector match/no-match records detector behavior
+  only. No-match never becomes a NON_SENSITIVE assessment.
 
 ## Tests by responsibility
 
@@ -47,6 +52,13 @@ M02 adds:
 - `test_m02_contract.py`: canonical Python profile source, policy subsets,
   mode/class invariant precedence, in-memory/disk audit and external metrics.
 
+M03-R1 strengthens `test_corpus_harness.py` with schema-v4 byte-length and
+contradiction checks, explicit v3-to-heuristic migration, oracle provenance,
+source-only replay, exact required-fact occurrences, label-scoped safety/frontier
+metrics, detector semantics, `rg --files` precedence, `0 failed`, and nonzero-exit
+precedence. The synthetic detector fixture uses an explicit inert placeholder;
+no real historical output or credential is committed.
+
 These constitute **VERIFIED IN CURRENT TEST CORPUS**, not exhaustive semantic
 proof. See `M02-AUDIT.md` for scoped guarantee classifications and measured results.
 
@@ -67,13 +79,14 @@ repository branch-protection required check; no administration settings are chan
 
 ## Limitations
 
-No original FioOS P14 corpus is bundled or replayed. `tests/corpus/README.md` is an
-import specification, not an implemented loader. Historical percentages were not
-reproduced here. No universal classifier/secret detection, original merged-stream
+No original FioOS/P14/M03 real corpus is bundled or replayed. The v4 loader and
+replay harness are implemented, but historical M03 percentages were not
+reproduced in M03-R1 and their original labels were not independent. No universal
+classifier/secret detection, original merged-stream
 interleaving, upstream truncation recovery, arbitrary filesystem hard-link support,
 OS crash/power-loss durability, hostile filesystem protection, Python-version-wide
 matrix, whole-mission economics or integration behavior is established.
 
-T02–T05, batching and predictive retrieval remain deferred. Future JSON tests must
+T02–T05, batching, M04 and predictive retrieval remain deferred. Future JSON tests must
 establish consumer contracts; parse equality alone is insufficient. Seeded tests
 use the standard library and do not add a fuzz framework dependency.

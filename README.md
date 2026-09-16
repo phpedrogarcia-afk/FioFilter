@@ -7,7 +7,8 @@
 
 The implemented surface is a Python API that accepts already captured bytes.
 It does not intercept Codex, run shell commands, install hooks, or call a model.
-M02 audits and hardens M01; it adds no new compression mechanism.
+M02 hardened the engine. M03 added an offline corpus harness; M03-R1 corrected
+its oracle methodology. No mission after M01 has added a compression mechanism.
 
 ## Development
 
@@ -77,17 +78,36 @@ corrective retrievals and recovery counts are separately supplied observations;
 
 M01 documented FioOS P3/P11/P13/P14 as historical workload evidence. That evidence
 outranks donor marketing for the workload, but its source corpus is not bundled
-and M02 does not independently reproduce those experiments. See the historical
-[donor autopsy](docs/DONOR-AUTOPSY.md).
+and this repository does not independently reproduce those experiments. The
+original M03 local sample also is not bundled. Its extractor-generated labels are
+heuristic, not ground truth; see the [M03-R1 audit](docs/M03-CORPUS-REPORT.md).
+
+## Corpus laboratory
+
+Corpus schema v4 separates source bytes, detector screening, heuristic suggestions,
+independently reviewed oracle labels and derived metrics. Extraction never creates
+an oracle. Replay never feeds oracle sensitivity or required facts into FioFilter.
+Safety/frontier comparisons and confusion matrices are partitioned by provenance.
+
+Legacy M03 v3 corpora are rejected by default. Explicit
+`M03_V3_AS_HEURISTIC` migration demotes their former `oracle_labels`; it does not
+validate them. A detector no-match remains `DETECTOR_NO_MATCH`, not
+`NON_SENSITIVE`. Real historical outputs remain local and outside Git.
+
+The previous `DUPLICATED_HEADERS` ranking is a heuristic candidate awaiting local
+independent review and a complete format/evidence contract. It is not authorization
+to implement M04.
 
 ## Project map
 
 - [AI orientation](AI-START-HERE.md), [agent instructions](AGENTS.md)
 - [Architecture](docs/ARCHITECTURE.md), [evidence contract I1–I16](docs/EVIDENCE-CONTRACT.md)
-- [Decisions, including explicit M01 supersessions](docs/DECISIONS.md)
+- [Decisions, including explicit M01/M03 supersessions](docs/DECISIONS.md)
 - [M02 audit and guarantee classifications](docs/M02-AUDIT.md)
+- [M03-R1 corpus/oracle audit](docs/M03-CORPUS-REPORT.md)
 - `fiofilter/profiles/*.py`: sole operational policy source; YAML duplicates removed
-- `tests/`: synthetic regression corpus; `tests/corpus/`: historical import specification only
+- `tests/`: synthetic regressions; `tests/corpus/`: executable schema and review protocol
 
 [GitHub](https://github.com/phpedrogarcia-afk/FioFilter) is the handoff surface for
-Codex Web and local Antigravity. M02 stops before M03 or transform expansion.
+Codex Web and local Antigravity. M03-R1 stops before local corpus re-review, M04
+selection or transform expansion.
