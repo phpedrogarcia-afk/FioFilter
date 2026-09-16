@@ -7,6 +7,7 @@ oracle. Replay never feeds either kind of label into FioFilter.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import pathlib
 from collections import Counter
@@ -683,3 +684,159 @@ def replay_corpus(
             )
         )
     return evaluated, summary
+
+
+PROHIBITED_SIDECAR_KEYS: Tuple[str, ...] = (
+    "raw_content_b64",
+    "raw_ref_path",
+    "raw_content",
+    "content",
+)
+
+
+def write_review_sidecar(
+    path: pathlib.Path | str,
+    reviews: Iterable[Dict[str, Any]],
+) -> None:
+    """Write an independently reviewed sidecar file without raw content bytes.
+
+    Each record must specify 'entry_id', 'raw_sha256', and 'oracle_labels'.
+    Prohibits raw content or base64 keys to enforce zero persistence/leakage
+    of source payloads in review metadata.
+    """
+    out_path = pathlib.Path(path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as handle:
+        for record in reviews:
+            if not isinstance(record, dict):
+                raise TypeError("Review sidecar record must be a dict")
+            for prohibited in PROHIBITED_SIDECAR_KEYS:
+                if prohibited in record:
+                    raise ValueError(
+                        f"Review sidecar record for {record.get('entry_id')} contains "
+                        f"prohibited raw content key: {prohibited}"
+                    )
+            if not record.get("entry_id"):
+                raise ValueError("Review sidecar record missing required 'entry_id'")
+            if not record.get("raw_sha256"):
+                raise ValueError(
+                    f"Review sidecar record for {record['entry_id']} missing required 'raw_sha256'"
+                )
+            oracle_raw = record.get("oracle_labels")
+            if oracle_raw is not None:
+                if not isinstance(oracle_raw, dict):
+                    raise ValueError(
+                        f"Review sidecar record for {record['entry_id']} has invalid oracle_labels"
+                    )
+                for prohibited in PROHIBITED_SIDECAR_KEYS:
+                    if prohibited in oracle_raw:
+                        raise ValueError(
+                            f"Review sidecar oracle_labels for {record['entry_id']} contains "
+                            f"prohibited key: {prohibited}"
+                        )
+            handle.write(json.dumps(record, sort_keys=True) + "\n")
+
+
+def apply_review_sidecar(
+    entries: Iterable[CorpusEntry],
+    sidecar_path: pathlib.Path | str,
+) -> List[CorpusEntry]:
+    """Attach independently reviewed oracle labels from a sidecar file.
+
+    Matches entries by entry_id, verifies raw SHA-256 integrity against source
+    data, validates schema, and ensures the sidecar does not contain raw content.
+    """
+    sidecar_file = pathlib.Path(sidecar_path)
+    if not sidecar_file.exists():
+        raise FileNotFoundError(f"Review sidecar file not found: {sidecar_file}")
+
+    sidecar_records: Dict[str, Dict[str, Any]] = {}
+    with open(sidecar_file, "r", encoding="utf-8") as handle:
+        for line_num, line in enumerate(handle, start=1):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"Malformed JSON on line {line_num} of {sidecar_file}: {exc}"
+                ) from exc
+            if not isinstance(record, dict):
+                raise TypeError(f"Line {line_num} of {sidecar_file} is not a JSON object")
+            for prohibited in PROHIBITED_SIDECAR_KEYS:
+                if prohibited in record:
+                    raise ValueError(
+                        f"Line {line_num} of {sidecar_file} contains prohibited raw key: {prohibited}"
+                    )
+            entry_id = record.get("entry_id")
+            if not entry_id:
+                raise ValueError(f"Line {line_num} of {sidecar_file} missing required 'entry_id'")
+            oracle_raw = record.get("oracle_labels")
+            if oracle_raw is not None and isinstance(oracle_raw, dict):
+                for prohibited in PROHIBITED_SIDECAR_KEYS:
+                    if prohibited in oracle_raw:
+                        raise ValueError(
+                            f"Line {line_num} of {sidecar_file} contains prohibited raw key: {prohibited}"
+                        )
+            sidecar_records[entry_id] = record
+
+    entries_list = list(entries)
+    known_entry_ids = {entry.entry_id for entry in entries_list}
+    for sidecar_id in sidecar_records:
+        if sidecar_id not in known_entry_ids:
+            raise ValueError(
+                f"Sidecar record {sidecar_id} does not match any entry in the loaded corpus"
+            )
+
+    applied_entries: List[CorpusEntry] = []
+    for entry in entries_list:
+        if entry.entry_id in sidecar_records:
+            rec = sidecar_records[entry.entry_id]
+            expected_sha = rec.get("raw_sha256")
+            actual_bytes = entry.source_data.get_bytes()
+            actual_sha = hashlib.sha256(actual_bytes).hexdigest()
+            if expected_sha and actual_sha != expected_sha:
+                raise ValueError(
+                    f"Integrity check failed for {entry.entry_id}: "
+                    f"sidecar raw_sha256 {expected_sha} does not match actual {actual_sha}"
+                )
+            oracle_raw = rec.get("oracle_labels")
+            oracle = _parse_oracle(oracle_raw) if oracle_raw else None
+
+            screening = entry.sensitivity_screening
+            if "sensitivity_assessment" in rec:
+                assessment = rec["sensitivity_assessment"]
+                new_notes = (
+                    f"{screening.notes}; Review assessment: {assessment}".lstrip("; ")
+                    if screening.notes
+                    else f"Review assessment: {assessment}"
+                )
+                screening = CorpusSensitivityScreening(
+                    result=screening.result,
+                    method=screening.method,
+                    notes=new_notes,
+                )
+
+            new_entry = CorpusEntry(
+                entry_id=entry.entry_id,
+                source_data=entry.source_data,
+                oracle_labels=oracle,
+                heuristic_suggestion=entry.heuristic_suggestion,
+                sensitivity_screening=screening,
+                derived_metrics=entry.derived_metrics,
+                tags=list(entry.tags),
+                schema_version=entry.schema_version,
+            )
+            errors = validate_corpus_entry(new_entry)
+            if errors:
+                raise ValueError(
+                    f"Validation failed after applying sidecar for {entry.entry_id}: "
+                    f"{'; '.join(errors)}"
+                )
+            applied_entries.append(new_entry)
+        else:
+            applied_entries.append(entry)
+
+    return applied_entries
+

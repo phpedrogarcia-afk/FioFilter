@@ -1,6 +1,7 @@
 """Material regressions for corpus provenance, replay, and extraction."""
 
 import base64
+import hashlib
 import json
 import pathlib
 from types import SimpleNamespace
@@ -15,9 +16,11 @@ from fiofilter.corpus import (
     CorpusOracleLabels,
     CorpusSensitivityScreening,
     CorpusSourceData,
+    apply_review_sidecar,
     load_corpus,
     replay_corpus,
     validate_corpus_entry,
+    write_review_sidecar,
 )
 from fiofilter.types import Disposition, EvidenceClass, Mode, Persistence, Sensitivity
 from scripts.extract_codex_corpus import (
@@ -435,3 +438,305 @@ class TestExtractorBehavior:
             classify_call_stratum("pytest tests", "12 passed", exit_code=7)
             == "test_failure"
         )
+
+
+class TestReviewSidecar:
+    def test_sidecar_prohibits_raw_content_and_base64_in_write(self, tmp_path):
+        sidecar_path = tmp_path / "bad_sidecar.jsonl"
+        with pytest.raises(ValueError, match="prohibited raw content key"):
+            write_review_sidecar(
+                sidecar_path,
+                [
+                    {
+                        "entry_id": "TEST-001",
+                        "raw_sha256": "abcdef",
+                        "raw_content_b64": "dGVzdA==",
+                        "oracle_labels": {"evidence_class": "DISCOVERY"},
+                    }
+                ],
+            )
+        with pytest.raises(ValueError, match="prohibited raw content key"):
+            write_review_sidecar(
+                sidecar_path,
+                [
+                    {
+                        "entry_id": "TEST-001",
+                        "raw_sha256": "abcdef",
+                        "raw_ref_path": "/path/to/raw",
+                        "oracle_labels": {"evidence_class": "DISCOVERY"},
+                    }
+                ],
+            )
+
+    def test_sidecar_prohibits_raw_content_in_apply(self, tmp_path):
+        sidecar_path = tmp_path / "leaking_sidecar.jsonl"
+        sidecar_path.write_text(
+            json.dumps({
+                "entry_id": "TEST-001",
+                "raw_sha256": "abcdef",
+                "raw_content": "leaked payload",
+            }) + "\n",
+            encoding="utf-8",
+        )
+        entry = _entry(b"test", entry_id="TEST-001")
+        with pytest.raises(ValueError, match="prohibited raw key"):
+            apply_review_sidecar([entry], sidecar_path)
+
+    def test_apply_review_sidecar_validates_sha256_and_attaches_oracle(self, tmp_path):
+        content = b"search output lines\n"
+        content_sha = hashlib.sha256(content).hexdigest()
+        entry = _entry(
+            content=content,
+            entry_id="REAL-001",
+            oracle_labels=None,
+            heuristic_suggestion=CorpusHeuristicSuggestion(
+                evidence_class="DISCOVERY",
+                transform_eligibility="SAFE_TO_REDUCE",
+                missed_opportunity_category="DUPLICATED_HEADERS",
+            ),
+        )
+        sidecar_path = tmp_path / "valid_sidecar.jsonl"
+        review_record = {
+            "entry_id": "REAL-001",
+            "raw_sha256": content_sha,
+            "oracle_labels": {
+                "evidence_class": "FAILURE",
+                "provenance": "INDEPENDENT_REVIEW",
+                "reviewer_id": "TEST_AUDITOR",
+                "review_protocol": "TEST_PROTOCOL_V1",
+                "sensitivity": "NOT_SENSITIVE",
+                "transform_eligibility": "RAW_REQUIRED",
+                "oracle_rationale": "Exit code 1 on search; RAW required under I6.",
+            },
+            "sensitivity_assessment": "ASSESSED_NON_SENSITIVE",
+        }
+        write_review_sidecar(sidecar_path, [review_record])
+
+        updated = apply_review_sidecar([entry], sidecar_path)
+        assert len(updated) == 1
+        applied = updated[0]
+        assert applied.oracle_labels is not None
+        assert applied.oracle_labels.provenance == "INDEPENDENT_REVIEW"
+        assert applied.oracle_labels.reviewer_id == "TEST_AUDITOR"
+        assert applied.oracle_labels.evidence_class == "FAILURE"
+        assert applied.oracle_labels.transform_eligibility == "RAW_REQUIRED"
+        assert "Review assessment: ASSESSED_NON_SENSITIVE" in applied.sensitivity_screening.notes
+
+    def test_apply_review_sidecar_rejects_sha256_mismatch(self, tmp_path):
+        content = b"actual content"
+        wrong_sha = hashlib.sha256(b"tampered content").hexdigest()
+        entry = _entry(content=content, entry_id="REAL-002", oracle_labels=None)
+        sidecar_path = tmp_path / "mismatch_sidecar.jsonl"
+        review_record = {
+            "entry_id": "REAL-002",
+            "raw_sha256": wrong_sha,
+            "oracle_labels": {
+                "evidence_class": "DISCOVERY",
+                "provenance": "INDEPENDENT_REVIEW",
+                "reviewer_id": "TEST_AUDITOR",
+                "review_protocol": "TEST_PROTOCOL_V1",
+                "sensitivity": "NOT_SENSITIVE",
+                "transform_eligibility": "RAW_REQUIRED",
+            },
+        }
+        write_review_sidecar(sidecar_path, [review_record])
+
+        with pytest.raises(ValueError, match="Integrity check failed"):
+            apply_review_sidecar([entry], sidecar_path)
+
+    def test_apply_review_sidecar_rejects_unmatched_entry_id(self, tmp_path):
+        entry = _entry(b"test", entry_id="REAL-001", oracle_labels=None)
+        sidecar_path = tmp_path / "unmatched_sidecar.jsonl"
+        review_record = {
+            "entry_id": "NON_EXISTENT_ID",
+            "raw_sha256": "abcdef123456",
+            "oracle_labels": {
+                "evidence_class": "DISCOVERY",
+                "provenance": "INDEPENDENT_REVIEW",
+                "reviewer_id": "TEST_AUDITOR",
+                "review_protocol": "TEST_PROTOCOL_V1",
+                "sensitivity": "NOT_SENSITIVE",
+                "transform_eligibility": "RAW_REQUIRED",
+            },
+        }
+        write_review_sidecar(sidecar_path, [review_record])
+
+        with pytest.raises(ValueError, match="does not match any entry in the loaded corpus"):
+            apply_review_sidecar([entry], sidecar_path)
+
+    def test_reviewed_oracle_provenance_isolated_from_heuristic(self, tmp_path):
+        content = b"search match line 1\nsearch match line 2\n"
+        content_sha = hashlib.sha256(content).hexdigest()
+        entry = _entry(
+            content=content,
+            entry_id="ISOLATION-001",
+            oracle_labels=None,
+            heuristic_suggestion=CorpusHeuristicSuggestion(
+                evidence_class="DISCOVERY",
+                transform_eligibility="SAFE_TO_REDUCE",
+                missed_opportunity_category="DUPLICATED_HEADERS",
+                method="M03_EXTRACTOR_V1",
+            ),
+        )
+        sidecar_path = tmp_path / "sidecar.jsonl"
+        write_review_sidecar(
+            sidecar_path,
+            [
+                {
+                    "entry_id": "ISOLATION-001",
+                    "raw_sha256": content_sha,
+                    "oracle_labels": {
+                        "evidence_class": "DISCOVERY",
+                        "provenance": "INDEPENDENT_REVIEW",
+                        "reviewer_id": "TEST_REVIEWER",
+                        "review_protocol": "TEST_PROTO",
+                        "sensitivity": "NOT_SENSITIVE",
+                        "transform_eligibility": "RAW_REQUIRED",
+                        "oracle_rationale": "Single search match lacks repeated header structure.",
+                    },
+                }
+            ],
+        )
+        applied = apply_review_sidecar([entry], sidecar_path)
+        evaluated, summary = replay_corpus(applied, mode=Mode.BUILD)
+
+        assert "ORACLE:INDEPENDENT_REVIEW" in summary.metrics_by_label_scope
+        assert "HEURISTIC:M03_EXTRACTOR_V1" in summary.metrics_by_label_scope
+
+        oracle_scope = summary.metrics_by_label_scope["ORACLE:INDEPENDENT_REVIEW"]
+        heuristic_scope = summary.metrics_by_label_scope["HEURISTIC:M03_EXTRACTOR_V1"]
+
+        assert oracle_scope["safe_opportunity_missed"] == 0
+        assert oracle_scope["safe_match"] == 1
+        assert oracle_scope["missed_by_bucket"]["DUPLICATED_HEADERS"]["entry_count"] == 0
+
+        assert heuristic_scope["safe_opportunity_missed"] == 1
+        assert heuristic_scope["missed_by_bucket"]["DUPLICATED_HEADERS"]["entry_count"] == 1
+
+
+class TestSearchFormatSyntheticCounterexamples:
+    def test_search_output_with_ansi_escape_codes_must_not_corrupt_text(self):
+        ansi_output = b"\x1b[35msrc/core.py\x1b[0m:\x1b[32m12\x1b[0m:    \x1b[1m\x1b[31mtarget_fn\x1b[0m()\n"
+        from fiofilter.engine import process
+        from fiofilter.types import ToolResult
+        tool_result = ToolResult(
+            content=ansi_output,
+            source="exec",
+            command="rg --color=always target_fn",
+            exit_code=0,
+            sensitivity=Sensitivity.UNKNOWN,
+            persistence=Persistence.EPHEMERAL,
+        )
+        result = process(tool_result, mode=Mode.BUILD)
+        assert result.disposition == Disposition.RAW
+        assert result.content == ansi_output
+
+    def test_search_output_with_windows_colon_paths(self):
+        windows_search = (
+            b"C:\\Users\\phped\\repo\\src\\main.py:15:def main():\n"
+            b"C:\\Users\\phped\\repo\\src\\main.py:20:    main()\n"
+        )
+        from fiofilter.engine import process
+        from fiofilter.types import ToolResult
+        tool_result = ToolResult(
+            content=windows_search,
+            source="exec",
+            command="rg def main",
+            exit_code=0,
+            sensitivity=Sensitivity.UNKNOWN,
+            persistence=Persistence.EPHEMERAL,
+        )
+        result = process(tool_result, mode=Mode.BUILD)
+        assert result.disposition == Disposition.RAW
+        assert result.content == windows_search
+
+    def test_search_output_with_column_numbers(self):
+        col_search = (
+            b"src/utils.py:42:10:result = parse(data)\n"
+            b"src/utils.py:48:5:return result\n"
+        )
+        from fiofilter.engine import process
+        from fiofilter.types import ToolResult
+        tool_result = ToolResult(
+            content=col_search,
+            source="exec",
+            command="rg --column parse",
+            exit_code=0,
+            sensitivity=Sensitivity.UNKNOWN,
+            persistence=Persistence.EPHEMERAL,
+        )
+        result = process(tool_result, mode=Mode.BUILD)
+        assert result.disposition == Disposition.RAW
+        assert result.content == col_search
+
+    def test_search_output_with_binary_match_notices(self):
+        binary_notice = b"Binary file dist/app.exe matches (line 45 omitted)\n"
+        from fiofilter.engine import process
+        from fiofilter.types import ToolResult
+        tool_result = ToolResult(
+            content=binary_notice,
+            source="exec",
+            command="rg match dist/",
+            exit_code=0,
+            sensitivity=Sensitivity.UNKNOWN,
+            persistence=Persistence.EPHEMERAL,
+        )
+        result = process(tool_result, mode=Mode.BUILD)
+        assert result.disposition == Disposition.RAW
+        assert result.content == binary_notice
+
+    def test_search_output_with_context_separators(self):
+        context_output = (
+            b"src/foo.py-10-def previous():\n"
+            b"src/foo.py:11:def target():\n"
+            b"src/foo.py-12-    pass\n"
+            b"--\n"
+            b"src/foo.py-25-def another():\n"
+            b"src/foo.py:26:def target():\n"
+            b"src/foo.py-27-    pass\n"
+        )
+        from fiofilter.engine import process
+        from fiofilter.types import ToolResult
+        tool_result = ToolResult(
+            content=context_output,
+            source="exec",
+            command="rg -C 1 target",
+            exit_code=0,
+            sensitivity=Sensitivity.UNKNOWN,
+            persistence=Persistence.EPHEMERAL,
+        )
+        result = process(tool_result, mode=Mode.BUILD)
+        assert result.disposition == Disposition.RAW
+        assert result.content == context_output
+
+    def test_search_output_with_nonzero_exit_requires_raw(self):
+        empty_search = b""
+        from fiofilter.engine import process
+        from fiofilter.types import ToolResult
+        tool_result = ToolResult(
+            content=empty_search,
+            source="exec",
+            command="rg nonexistent_pattern",
+            exit_code=1,
+            sensitivity=Sensitivity.UNKNOWN,
+            persistence=Persistence.EPHEMERAL,
+        )
+        result = process(tool_result, mode=Mode.BUILD)
+        assert result.disposition == Disposition.RAW
+        assert result.evidence_class == EvidenceClass.FAILURE
+
+    def test_search_output_with_upstream_truncation_requires_raw(self):
+        truncated_search = b"src/a.py:1:match\n[Output truncated at 40000 bytes...]"
+        from fiofilter.engine import process
+        from fiofilter.types import ToolResult
+        tool_result = ToolResult(
+            content=truncated_search,
+            source="exec",
+            command="rg pattern",
+            exit_code=0,
+            truncated=True,
+            sensitivity=Sensitivity.UNKNOWN,
+            persistence=Persistence.EPHEMERAL,
+        )
+        result = process(tool_result, mode=Mode.BUILD)
+        assert result.disposition == Disposition.RAW

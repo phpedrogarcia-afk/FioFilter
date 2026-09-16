@@ -497,3 +497,34 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   measure the same event; alter the historical number to make them agree.
 - **REVERSIBILITY**: A later audit with source telemetry can define and reconcile
   counters explicitly while retaining this uncertainty record.
+
+## M03-R2-D001 — Independent local validation of `DUPLICATED_HEADERS` candidate — qualifies M03-R1-D004
+
+- **QUESTION**: Does independent local examination of historical session records
+  support selecting `DUPLICATED_HEADERS` as an authorized reduction frontier?
+- **EVIDENCE**: Independent local review of all 8 search-stratum records in primary
+  sample `m03_fioos_sample_v1.jsonl` revealed that 0 of the 97,503 bytes (0.0%) are
+  confirmed safe to reduce: 80.3 KB were truncated chat thread / search output
+  requiring RAW under I13; 11.0 KB was canonical Python source code requiring RAW
+  under I7; 1.3 KB was SSH failure diagnostic requiring RAW under I6; 4.2 KB was
+  single-file search with nonzero exit requiring RAW under I6; and 4.8 KB was
+  composite directory listing + grep output with ambiguous grammar (UNKNOWN).
+  However, broader inspection of the full canonical session `01a02f96` proved that
+  193 pure, untruncated multi-file `rg` calls with authentic repeated headers DO
+  exist in real coding workflows.
+- **DECISION**: Classify candidate status as
+  `DUPLICATED_HEADERS_PARTIALLY_VALIDATED_MORE_EVIDENCE_REQUIRED` and mission
+  verdict as `M03_R2_PASS_MORE_VALIDATION_REQUIRED`. Do not authorize M04 transform
+  implementation yet. Require an uncorrupted, cleanly sampled search corpus and a
+  formal lossless preservation grammar contract (handling Windows colons, column
+  numbers, context lines, ANSI, binary notices, and fail-open RAW fallback) before
+  any transform is built.
+- **WHY**: Preventing premature transform development on contaminated sample data
+  while acknowledging authentic workload reduction potential discovered in the
+  underlying session.
+- **ALTERNATIVES_REJECTED**: Rejecting the candidate entirely (ignoring the 193 pure
+  session calls); authorizing M04 immediately based on heuristic percentage;
+  building a transform on truncated or composite outputs.
+- **REVERSIBILITY**: A dedicated search corpus and approved grammar contract can
+  advance the candidate to fully validated status in a future mission.
+

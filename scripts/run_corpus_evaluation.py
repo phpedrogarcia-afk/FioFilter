@@ -12,15 +12,23 @@ import argparse
 import json
 import pathlib
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-from fiofilter.corpus import load_corpus, replay_corpus
+from fiofilter.corpus import apply_review_sidecar, load_corpus, replay_corpus
 from fiofilter.types import Mode
 
 
-def evaluate_corpus(corpus_path: str | pathlib.Path, mode_str: str = "BUILD", profile_id: str = "fioos") -> Dict[str, Any]:
+def evaluate_corpus(
+    corpus_path: str | pathlib.Path,
+    mode_str: str = "BUILD",
+    profile_id: str = "fioos",
+    sidecar_path: Optional[str | pathlib.Path] = None,
+    migration: Optional[str] = None,
+) -> Dict[str, Any]:
     p = pathlib.Path(corpus_path)
-    entries = load_corpus(p)
+    entries = load_corpus(p, migration=migration)
+    if sidecar_path is not None:
+        entries = apply_review_sidecar(entries, sidecar_path)
     mode = Mode[mode_str.upper()]
 
     evaluated, summary = replay_corpus(entries, mode=mode, profile_id=profile_id)
@@ -70,6 +78,8 @@ def evaluate_corpus(corpus_path: str | pathlib.Path, mode_str: str = "BUILD", pr
 
     out = {
         "corpus_path": str(p),
+        "sidecar_path": str(sidecar_path) if sidecar_path else None,
+        "migration": migration,
         "mode": mode.value,
         "profile_id": profile_id,
         "total_entries": summary.total_entries,
@@ -102,12 +112,20 @@ def evaluate_corpus(corpus_path: str | pathlib.Path, mode_str: str = "BUILD", pr
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate FioFilter against a corpus JSONL file.")
     parser.add_argument("--corpus", required=True, help="Path to corpus JSONL file")
+    parser.add_argument("--sidecar", default=None, help="Path to reviewed sidecar JSONL file")
+    parser.add_argument("--migration", default=None, help="Corpus migration mode (e.g. M03_V3_AS_HEURISTIC)")
     parser.add_argument("--mode", default="BUILD", help="Operational mode (EXPLORE, BUILD, PROVE)")
     parser.add_argument("--profile", default="fioos", help="Profile ID (default, fioos, fioideias)")
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     args = parser.parse_args()
-    report = evaluate_corpus(args.corpus, mode_str=args.mode, profile_id=args.profile)
+    report = evaluate_corpus(
+        args.corpus,
+        mode_str=args.mode,
+        profile_id=args.profile,
+        sidecar_path=args.sidecar,
+        migration=args.migration,
+    )
 
     if args.json:
         print(json.dumps(report, indent=2))
@@ -117,6 +135,10 @@ def main() -> None:
     print("FIOFILTER CORPUS EVALUATION REPORT")
     print("==================================================")
     print(f"Corpus: {report['corpus_path']}")
+    if report["sidecar_path"]:
+        print(f"Sidecar: {report['sidecar_path']}")
+    if report["migration"]:
+        print(f"Migration: {report['migration']}")
     print(f"Mode: {report['mode']} | Profile: {report['profile_id']}")
     print(f"Total Entries: {report['total_entries']}")
     print(
