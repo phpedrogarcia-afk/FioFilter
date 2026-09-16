@@ -43,6 +43,15 @@ Key conclusions from M07:
   - 17 events are large repeated whole-file reads (skills, attachments, config references) totaling 184,194 B where hypothetical reference replacement saves 181,762 B.
   - 14 events are 35-byte polling loop log tails (`campaign.stdout.log -Tail 40`) where hypothetical reference formatting (143 B) would expand output; these were correctly rejected under the no-expansion invariant.
 
+### 2.1 Denominator Hygiene: M05 Broad Family vs M07 Specialized Read Subset
+- **M05 Broad `FILE_READ` Family (1,090 calls)**: In `context_census.py`, any command matching `\b(Get-Content|cat|head|tail|type|more|less)\b` was assigned `tool_family = "FILE_READ"`. This broad regex matched 1,090 calls in Source A.
+- **M07 Evaluated Read Subset (490 calls)**: M07 operates strictly on the subset where file-read source and view analysis is applicable:
+  $$\text{M07\_READ\_DENOMINATOR\_DEFINITION} = \text{Session tool calls where } \texttt{tool\_family == 'FILE\_READ'} \text{ and } \texttt{target\_path is not None}$$
+  Exactly 490 calls possess an identifiable target path extracted via `-Path`, `-LiteralPath`, or quoted filename with extension. The remaining 600 calls (such as `git rev-parse HEAD` matching case-insensitive `\bhead\b` without a target path) have `target_path == None` and were excluded from file read receipt specialization.
+- **Epistemic Verification**:
+  - `M07_READ_DENOMINATOR_DEFINITION`: Structured file-read subset (`tool_family == 'FILE_READ'` with non-None `target_path`).
+  - `METRIC_CONTRADICTION`: **NO**.
+
 ---
 
 ## 3. Architectural Plane Separation

@@ -763,6 +763,9 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   - **Behavioral Authority**: Active context suppression carries salience and recency risks because model reasoning may depend on in-context token presence.
 - **DECISION**:
   - Decouple Plane A (source freshness and byte identity) from Plane B (context suppression policy authority).
+  - Record:
+    - `M07_READ_DENOMINATOR_DEFINITION = All session tool calls classified under tool_family == 'FILE_READ' having a non-None target_path extracted by regex.`
+    - `METRIC_CONTRADICTION = NO`
   - Require SHA-256 and byte equality (Level F4) for live freshness proof; treat mtime/size strictly as fast rejection hints.
   - Enforce strict no-expansion on hypothetical references (`[[FIOFILTER:READREF:v1 ...]]`).
   - Maintain `ACTIVE_READ_REFERENCE_SUPPRESSION = NO` (zero runtime suppression or modification).
