@@ -861,3 +861,41 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   - External language server protocol (LSP) or Tree-sitter binary daemons (unnecessary complexity and violates minimal dependency mission rule).
   - Vector embeddings or LLM-based query expansion (nondeterministic, heavyweight, and violates offline determinism).
 - **REVERSIBILITY**: High. The structural shadow is completely decoupled from the evidence store, transform engine, and read receipt ledger.
+
+
+---
+
+## M10-D001 — BM25_LEXICAL as Strong Deterministic Baseline; Structural Relations Not Authorized
+
+- **QUESTION**: Does BM25-style lexical ranking improve over the M09 legacy stem-overlap baseline, and does the miss autopsy justify adding structural relations (IMPORTS, CALLS, TEST_RELATES)?
+- **EVIDENCE**:
+  - **BM25_STYLE_LEXICAL_V1** implemented in `fiofilter/discovery_lexical.py`:
+    - Query tokenization V2: normalizes snake_case, camelCase, PascalCase into atomic lowercase tokens; same normalization applied to code for query-code parity.
+    - Frozen V1 weights: `k1=1.2`, `b=0.75`.
+    - Preserved `LEGACY_LEXICAL` (M09 mode) for ablation parity.
+  - **Benchmark Expansion**: Rescanned all 18 FioFilter commits; 9 benchmarked (7 non-leaking, 2 path-leaking); 9 correctly skipped (new-file commits where GT files did not exist in parent snapshot).
+  - **Ablation Results (non-leaking, n=7)**:
+    - `LEGACY_LEXICAL`: R@1=16.3%, R@5=54.0%, R@10=60.3%, MRR=0.6786
+    - `BM25_LEXICAL`: R@1=16.3%, R@5=57.9%, R@10=65.9%, MRR=0.6786
+    - **BM25_LEXICAL wins R@10 by +5.6pp; MRR equal.**
+  - **Miss Autopsy V2**: 1 miss@10 in both modes (commit 5091ac08). Cause: `ZERO_LEXICAL_OVERLAP` — commit message uses epistemic/abstract terms ("clarify, epistemic, scope, redelivery, replacement") while ground-truth file is `context_census.py`. No ranking algorithm, structural or lexical, can bridge this vocabulary gap from available query signals.
+  - **Structural Relations Authorization**: Negative. Miss autopsy finds no miss attributable to missing graph topology. `DO_NOT_PAY_GRAPH_COMPLEXITY_FOR_A_LEXICAL_PROBLEM = ENFORCED`.
+  - **Source A**: `SOURCE_A_BM25_LEXICAL_REPLAY = NOT_PROVEN` (no task→target labels available).
+- **DECISION**:
+  - Establish `BM25_LEXICAL` as the new strong deterministic lexical baseline.
+  - Freeze V1 weights: `k1=1.2`, `b=0.75`. Any change requires a superseding M10-D001 entry.
+  - Do NOT implement `fiofilter/structural_relations.py` — miss autopsy does not justify it.
+  - Record:
+    - `BM25_LEXICAL_BEATS_LEGACY_LEXICAL_R10 = PROVEN` (+5.6pp on 7-commit non-leaking corpus)
+    - `BM25_LEXICAL_BEATS_LEGACY_LEXICAL_MRR = NOT_PROVEN` (equal on this corpus)
+    - `STRUCTURAL_RELATIONS_V2_AUTHORIZED = FALSE`
+    - `PPR_VALUE_AS_IMPLEMENTED = NOT_PROVEN` (unchanged from M09)
+    - `DISCOVERY_READ_SUPPRESSION = NO` (frozen)
+  - **M10 VERDICT**: `BM25_LEXICAL_MARGINAL_WIN_STRUCTURAL_RELATIONS_NOT_AUTHORIZED`
+- **WHY**: BM25 provides measurable improvement with zero added complexity or external dependencies. The miss autopsy definitively attributes the only failure to a vocabulary mismatch that structural graph edges cannot resolve. Structural relations remain unauthorized — a valid and valuable negative result that keeps FioFilter simpler.
+- **ALTERNATIVES_REJECTED**:
+  - Implementing structural_relations.py (IMPORTS, CALLS, TEST_RELATES) without miss autopsy justification (rejected: DO_NOT_PAY_GRAPH_COMPLEXITY_FOR_A_LEXICAL_PROBLEM).
+  - Embeddings or LLM query expansion (rejected: nondeterministic, heavyweight, violates offline determinism constraint).
+  - Tuning BM25 k1/b weights before holdout evaluation (rejected: must freeze V1 weights before any evaluation to avoid overfitting).
+  - Declaring BM25 universally superior to legacy (rejected: improvement is PROVEN only on 7-commit non-leaking corpus; MRR equal).
+- **REVERSIBILITY**: High. `discovery_lexical.py` is completely additive — it does not modify any existing engine, transform, or profile. Legacy ranker preserved for regression comparison.
