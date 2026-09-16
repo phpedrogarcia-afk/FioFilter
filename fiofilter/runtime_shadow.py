@@ -74,10 +74,14 @@ class SalienceRiskBucket(str, enum.Enum):
     VERY_FAR = "VERY_FAR"  # >50 calls
 
 
-def classify_salience_risk(call_distance: Optional[int]) -> SalienceRiskBucket:
-    """Classify call distance into observational risk bucket."""
+def classify_salience_risk(call_distance: Optional[int]) -> Optional[SalienceRiskBucket]:
+    """Classify call distance of repeat read events into observational risk bucket.
+
+    Returns None for first deliveries (where call_distance is None), as first deliveries
+    do not have a prior observation and therefore carry zero reread salience risk.
+    """
     if call_distance is None:
-        return SalienceRiskBucket.VERY_FAR
+        return None
     if call_distance <= 10:
         return SalienceRiskBucket.NEAR
     if call_distance <= 25:

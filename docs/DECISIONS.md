@@ -785,13 +785,18 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   - Dual-mode architecture implemented and empirically benchmarked:
     - Mode A (`PASSIVE_STREAM_SHADOW`): Ingests append-only JSONL via `PassiveJsonlTailSource` with complete partial-write safety (`PARTIAL_JSON_DOUBLE_PROCESSING = 0`, `PARTIAL_JSON_LOSS = 0`). Streamed 35,040 records of Source A (206 MB) in 8.861 s (3,954.6 rec/sec) with median chunk latency of 122.17 ms.
     - Exact equivalence: Mode A streaming evaluation produced 490/490 identical decisions to M07 batch baseline (`STREAM_VS_BATCH_EQUIVALENCE = PASS`).
-    - Mode B (`DIRECT_READ_LAB`): Single-read architecture mitigates TOCTOU (`WINDOW = 0`), achieves exact byte-for-byte transparency (`HARNESS_RAW_OUTPUT == DIRECT_BASELINE_READ`), isolates observer telemetry failures (`SHADOW_FAILURE_RAW_DELIVERY_PRESERVED = PASS`), and defeats timestamp spoofing.
+    - Mode B (`DIRECT_READ_LAB`): Single-read architecture mitigates byte divergence (`PROOF_DELIVERY_BYTE_DIVERGENCE_WINDOW = 0_BY_SINGLE_BUFFER`, `FILESYSTEM_POST_READ_MUTATION_POSSIBLE = YES`), achieves exact byte-for-byte transparency (`HARNESS_RAW_OUTPUT == DIRECT_BASELINE_READ`), isolates observer telemetry failures (`SHADOW_FAILURE_RAW_DELIVERY_PRESERVED = PASS`), and defeats timestamp spoofing.
     - Crash consistency & rewind defense: Verified via atomic checkpoints (`ShadowCursor`) and `SourceRewindException`.
-    - Observational salience: 94.3% of reads are distant ($D > 50$), confirming that active suppression without behavioral testing is cognitively risky.
+    - Observational salience hygiene: `FIRST_DELIVERY_NOT_SALIENCE_RISK = YES` (445 first-time deliveries excluded from reread salience risk), `SALIENCE_REPEAT_DENOMINATOR_EXPLICIT = YES` (45 true repeat events: NEAR 22.2%, MEDIUM 37.8%, FAR 2.2%, VERY_FAR 37.8%).
+    - Memory footprint: Labeled as `APPROXIMATE_RECEIPT_OBJECT_FOOTPRINT` ≈180 KB.
   - Codex execution environment is currently unavailable (`LIVE_CODEX_SHADOW = NOT_RUN_CODEX_UNAVAILABLE`).
 - **DECISION**:
   - Formally record:
     - `ACTIVE_READ_REFERENCE_SUPPRESSION = NO`
+    - `FIRST_DELIVERY_NOT_SALIENCE_RISK = YES`
+    - `SALIENCE_REPEAT_DENOMINATOR_EXPLICIT = YES`
+    - `PROOF_DELIVERY_BYTE_DIVERGENCE_WINDOW = 0_BY_SINGLE_BUFFER`
+    - `FILESYSTEM_POST_READ_MUTATION_POSSIBLE = YES`
     - `LIVE_CODEX_SHADOW = NOT_RUN_CODEX_UNAVAILABLE`
     - `REEXPOSURE_STATUS = READY_FOR_LIVE_CODEX_SHADOW`
     - `NEXT_LANE = DISCOVERY_STRUCTURAL_SHADOW`

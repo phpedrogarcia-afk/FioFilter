@@ -15,7 +15,7 @@ Where M07 mathematically proved file read freshness in offline batch analysis, M
    - Atomic checkpointing (`ShadowCursor`) enables seamless restart/resume with hash-chained ledger continuity.
    - Source rewind/rotation detection fails closed (`SourceRewindException`) if observed logs shrink or rotate unexpectedly.
 3. **TOCTOU Race Mitigation & Failure Isolation (Mode B)**:
-   - Single-read architecture: disk bytes are read exactly once to generate both the delivered RAW response and the SHA-256 telemetry (`TOCTOU_WINDOW = 0`).
+   - Single-read architecture proves `PROOF_DELIVERY_BYTE_DIVERGENCE_WINDOW = 0_BY_SINGLE_BUFFER` because the same in-memory byte buffer is used for both raw return and telemetry hashing (`FILESYSTEM_POST_READ_MUTATION_POSSIBLE = YES`).
    - Observer failure isolation: telemetry exceptions are strictly contained; raw delivery is never blocked or corrupted (`SHADOW_FAILURE_RAW_DELIVERY_PRESERVED = PASS`).
    - Mtime spoof defense: SHA-256 byte verification defeats timestamp spoofing (`MTIME_SPOOF_DEFENSE = PASS`).
 4. **Empirical Stream vs. Batch Equivalence**:
@@ -24,7 +24,7 @@ Where M07 mathematically proved file read freshness in offline batch analysis, M
 5. **Runtime Overhead & Performance**:
    - Ingestion throughput: **3,954.6 records/sec** (entire 206 MB session processed in 8.861 s).
    - Median chunk latency: **122.17 ms** (p95: 155.94 ms, p99: 165.55 ms per 500-record batch).
-   - Peak active in-memory receipts: **410**.
+   - Peak active in-memory receipts: **410** (`APPROXIMATE_RECEIPT_OBJECT_FOOTPRINT` ≈180 KB).
 6. **Epistemic Scope & Target Selection**:
    - Codex runtime is currently unavailable (`LIVE_CODEX_SHADOW = NOT_RUN_CODEX_UNAVAILABLE`).
    - Reexposure lane is frozen in a verified, ready state: `REEXPOSURE_STATUS = READY_FOR_LIVE_CODEX_SHADOW`.
@@ -79,7 +79,7 @@ The runtime shadow harness decouples observation from execution:
 - **Role**: Provides a drop-in file reading utility for controlled laboratory benchmarking.
 - **Safety Boundary**: Guarantees byte-for-byte exactness with standard OS file reading (`HARNESS_RAW_OUTPUT == DIRECT_BASELINE_READ`).
 - **TOCTOU Race Defense**:
-  In naïve implementations, an observer reads the file once to compute telemetry, and the agent reads the file again to deliver content. If the file changes between the two reads (Time-of-Check to Time-of-Use), telemetry diverges from delivery. `DirectReadLab` solves this by reading the authoritative file bytes **once**, delivering those exact bytes to the caller, and computing SHA-256 hashes on the in-memory buffer (`TOCTOU_WINDOW = 0`).
+  In naïve implementations, an observer reads the file once to compute telemetry, and the agent reads the file again to deliver content. If the file changes between the two reads (Time-of-Check to Time-of-Use), telemetry diverges from delivery. `DirectReadLab` solves this by reading the authoritative file bytes **once**, delivering those exact bytes to the caller, and computing SHA-256 hashes on the identical in-memory buffer (`PROOF_DELIVERY_BYTE_DIVERGENCE_WINDOW = 0_BY_SINGLE_BUFFER`). While disk mutations immediately following the read remain possible (`FILESYSTEM_POST_READ_MUTATION_POSSIBLE = YES`), divergence between returned bytes and evaluated proof is eliminated.
 - **Observer Failure Isolation**:
   If any telemetry subsystem encounters an unhandled exception or corrupt metadata, `DirectReadLab` catches the error, sets `decision = None`, and returns the unmodified raw bytes. Telemetry failure can never break application execution (`SHADOW_FAILURE_RAW_DELIVERY_PRESERVED = PASS`).
 
@@ -172,16 +172,19 @@ M08 formalizes three distinct runtime freshness levels:
    Achieved exclusively in `DirectReadLab`. The single-read architecture guarantees that the delivered bytes and the verified SHA-256 hash are identically bound.
 
 ### 5.2 Observational Salience Risk Distribution
-Replacing repeated reads with references reduces token volume, but coding agent reasoning often requires the recent presence of tokens in the active context window. M08 classifies observational distance into risk buckets based on call distance from receipt issuance:
+Replacing repeated reads with references reduces token volume, but coding agent reasoning often requires the recent presence of tokens in the active context window. M08 rigorously establishes explicit denominator hygiene:
+- `FIRST_DELIVERY_NOT_SALIENCE_RISK = YES`: 445 read calls (4,040,090 B raw) represent first-time deliveries (or views where no prior receipt existed). They carry zero reread salience risk and are excluded from the repeat-read risk denominator.
+- `SALIENCE_REPEAT_DENOMINATOR_EXPLICIT = YES`: Exactly 45 calls (225,889 B raw, 181,762 B avoided) represent repeated deliveries where call distance $D$ is established relative to a prior receipt.
 
-| Salience Risk Bucket | Distance ($D = \text{calls since receipt}$) | Events in Source A | % of Read Events | Operational Implication |
-| :--- | :--- | :--- | :--- | :--- |
-| **`NEAR`** | $D \le 10$ calls | 10 | 2.0% | High context recency; low risk of attention fading |
-| **`MEDIUM`** | $11 \le D \le 25$ calls | 17 | 3.5% | Moderate recency; viable for compact pointer |
-| **`FAR`** | $26 \le D \le 50$ calls | 1 | 0.2% | Distant reference; model may have discarded details |
-| **`VERY_FAR`** | $D > 50$ calls (or first seen) | 462 | 94.3% | First reads or deep historical re-reads |
+| Salience Risk Bucket | Distance ($D = \text{calls since receipt}$) | Repeat Events | % of Repeat Events | Raw Bytes | Avoided Bytes | Operational Implication |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **`NEAR`** | $D \le 10$ calls | 10 | 22.2% | 12,441 B | 0 B | High context recency; polling/un-economic |
+| **`MEDIUM`** | $11 \le D \le 25$ calls | 17 | 37.8% | 7,948 B | 235 B | Moderate recency; viable candidate zone |
+| **`FAR`** | $26 \le D \le 50$ calls | 1 | 2.2% | 16,140 B | 15,998 B | Distant reference; attention may have faded |
+| **`VERY_FAR`** | $D > 50$ calls | 17 | 37.8% | 189,360 B | 165,529 B | Deep historical re-reads; cognitive risk high |
+| **Total Repeat Deliveries** | — | **45** | **100.0%** | **225,889 B** | **181,762 B** | — |
 
-**Epistemic Insight**: Even among identical rereads, 94.3% occur either as initial observations or across substantial call distances. Active context suppression without agent-in-the-loop behavioral testing risks attention degradation. FioFilter's choice to remain strictly in SHADOW mode protects agent cognitive integrity.
+**Epistemic Insight**: When isolating true repeat deliveries, 37.8% occur at extreme call distances ($D > 50$), while 60.0% occur within 25 calls. Active context suppression without agent-in-the-loop behavioral testing risks attention degradation on distant references. FioFilter's choice to remain strictly in SHADOW mode protects agent cognitive integrity.
 
 ---
 

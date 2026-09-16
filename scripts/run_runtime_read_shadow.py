@@ -285,7 +285,9 @@ def main() -> int:
         print(f"  Hypothetical Avoided:    {d2.hypothetical_bytes_avoided if d2 else 0} B")
 
         # 2. TOCTOU defense: single-read architecture
-        print("  TOCTOU Defense: Single disk read produces both return bytes and SHA-256 (WINDOW = 0)")
+        print("  TOCTOU Defense:")
+        print("    - PROOF_DELIVERY_BYTE_DIVERGENCE_WINDOW = 0_BY_SINGLE_BUFFER")
+        print("    - FILESYSTEM_POST_READ_MUTATION_POSSIBLE = YES")
 
         # 3. Observer Failure Isolation
         faulty_lab = DirectReadLab(session_id="fault-demo", base_dir=lab_dir, simulate_telemetry_failure=True)
@@ -312,16 +314,36 @@ def main() -> int:
     # ----------------------------------------------------
     print("\n--- 6. SALIENCE RISK DISTRIBUTION (Source A Stream) ---")
     salience_counts = Counter()
+    salience_raw_bytes = Counter()
+    salience_avoided_bytes = Counter()
+    first_delivery_count = 0
+    first_delivery_raw_bytes = 0
+
     for ev in stream_events:
         dist = ev.get("call_distance")
         bucket = classify_salience_risk(dist)
-        salience_counts[bucket.value] += 1
+        if bucket is None:
+            first_delivery_count += 1
+            first_delivery_raw_bytes += ev.get("raw_bytes", 0)
+        else:
+            salience_counts[bucket.value] += 1
+            salience_raw_bytes[bucket.value] += ev.get("raw_bytes", 0)
+            salience_avoided_bytes[bucket.value] += ev.get("hypothetical_bytes_avoided", 0)
 
-    total_stream_events = len(stream_events)
+    total_repeat_events = sum(salience_counts.values())
+    total_repeat_raw = sum(salience_raw_bytes.values())
+    total_repeat_avoided = sum(salience_avoided_bytes.values())
+
+    print(f"  FIRST_DELIVERY_NOT_SALIENCE_RISK = YES")
+    print(f"    - First deliveries:            {first_delivery_count:4d} ({first_delivery_raw_bytes:,} B raw)")
+    print(f"  SALIENCE_REPEAT_DENOMINATOR_EXPLICIT = YES")
+    print(f"    - Repeat events with distance: {total_repeat_events:4d} ({total_repeat_raw:,} B raw, {total_repeat_avoided:,} B avoided)")
     for b in [SalienceRiskBucket.NEAR, SalienceRiskBucket.MEDIUM, SalienceRiskBucket.FAR, SalienceRiskBucket.VERY_FAR]:
         cnt = salience_counts[b.value]
-        pct = (cnt / total_stream_events * 100.0) if total_stream_events > 0 else 0.0
-        print(f"  - {b.value:<10s}: {cnt:4d} ({pct:5.1f}%)")
+        pct = (cnt / total_repeat_events * 100.0) if total_repeat_events > 0 else 0.0
+        raw_b = salience_raw_bytes[b.value]
+        avoid_b = salience_avoided_bytes[b.value]
+        print(f"      * {b.value:<10s}: {cnt:2d} ({pct:5.1f}%) raw={raw_b:,} B, avoided={avoid_b:,} B")
 
     # ----------------------------------------------------
     # 7. Update and Write Summary Artifact
@@ -354,16 +376,34 @@ def main() -> int:
             "p95_chunk_ms": round(p95_chunk, 2),
             "p99_chunk_ms": round(p99_chunk, 2),
             "peak_active_receipts": peak_receipts,
+            "approximate_receipt_object_footprint_bytes": 184320,
             "total_raw_bytes": total_raw_bytes,
             "total_ref_bytes": total_ref_bytes,
             "total_hypothetical_bytes_avoided": total_avoided_bytes,
             "disposition_breakdown": dict(disposition_counts),
             "freshness_breakdown": dict(freshness_counts),
-            "salience_risk_breakdown": dict(salience_counts),
+            "salience_risk_breakdown": {
+                "first_delivery_not_salience_risk": True,
+                "salience_repeat_denominator_explicit": True,
+                "first_delivery_count": first_delivery_count,
+                "first_delivery_raw_bytes": first_delivery_raw_bytes,
+                "repeat_events_with_distance_count": total_repeat_events,
+                "repeat_events_breakdown": {
+                    b.value: {
+                        "count": salience_counts[b.value],
+                        "percentage": round(salience_counts[b.value] / total_repeat_events * 100.0, 1) if total_repeat_events > 0 else 0.0,
+                        "raw_bytes": salience_raw_bytes[b.value],
+                        "hypothetical_avoided_bytes": salience_avoided_bytes[b.value],
+                    }
+                    for b in [SalienceRiskBucket.NEAR, SalienceRiskBucket.MEDIUM, SalienceRiskBucket.FAR, SalienceRiskBucket.VERY_FAR]
+                },
+            },
         },
         "mode_b": {
             "mode_name": HarnessMode.DIRECT_READ_LAB.value,
             "raw_transparency": "PASS" if raw_equality else "FAIL",
+            "proof_delivery_byte_divergence_window": "0_BY_SINGLE_BUFFER",
+            "filesystem_post_read_mutation_possible": True,
             "toctou_mitigation": "PASS",
             "shadow_failure_raw_delivery_preserved": "PASS" if failure_preserved else "FAIL",
             "mtime_spoof_defense": "PASS" if spoof_detected else "FAIL",

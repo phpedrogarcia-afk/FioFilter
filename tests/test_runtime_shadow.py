@@ -383,4 +383,4 @@ class TestSalienceRiskClassification:
         assert classify_salience_risk(50) == SalienceRiskBucket.FAR
         assert classify_salience_risk(51) == SalienceRiskBucket.VERY_FAR
         assert classify_salience_risk(150) == SalienceRiskBucket.VERY_FAR
-        assert classify_salience_risk(None) == SalienceRiskBucket.VERY_FAR
+        assert classify_salience_risk(None) is None
