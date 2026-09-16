@@ -808,3 +808,46 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   - Fabricating synthetic Codex interactions to simulate live execution.
   - Activating premature reference redelivery without agent-in-the-loop behavioral testing.
 - **REVERSIBILITY**: High. Shadow harnesses remain read-only and decoupled from core engine primitives.
+
+---
+
+## M09-D001 — Structural Discovery Shadow as Non-Authoritative Control Plane
+
+- **QUESTION**: How should structural repository indexing (RepoMap/AgentMap donor mechanisms) be integrated into FioFilter without violating lossless evidence invariants or introducing unverified context pruning?
+- **EVIDENCE**:
+  - **Donor Mechanism Evaluation**:
+    - Aider RepoMap: Personalized PageRank (PPR) power iteration with damping alpha=0.85, task-personalized teleport seeds, compact budgeted symbol signature maps (1KB to 8KB).
+    - AgentMap: Strict decoupling of FILE_GRAPH from SYMBOL_INDEX, Graph Health accounting (parse coverage 100%, edge coverage 100%, status `GRAPH_HEALTH_HIGH_OBSERVED`), distinction of intra-repo candidates from external/stdlib roots.
+  - **Single Implementation Backend**: `PYTHON_AST_LOCAL_RESOLVER_V1` implemented strictly via Python standard library `ast`, `hashlib`, `pathlib`, `subprocess` (zero heavy external dependencies, zero LSP servers, zero daemon processes, zero embeddings).
+  - **Commit-History Benchmark**: Evaluated across 13 eligible historical commits in FioFilter's own Git repository using non-destructive Git plumbing (`git ls-tree` / `git show`):
+    - All Eligible Commits (13 tasks):
+      - `LEXICAL_ONLY`: R@1=23.1%, R@3=53.8%, R@5=61.5%, R@10=69.2%, MRR=0.3821, MissTop10=4
+      - `STRUCTURAL_ONLY`: R@1=7.7%, R@3=15.4%, R@5=23.1%, R@10=30.8%, MRR=0.1346, MissTop10=9
+      - `LEXICAL_PLUS_STRUCTURAL`: R@1=23.1%, R@3=46.2%, R@5=46.2%, R@10=53.8%, MRR=0.3462, MissTop10=6
+      - `LEXICAL_PLUS_PPR`: R@1=23.1%, R@3=46.2%, R@5=46.2%, R@10=53.8%, MRR=0.3462, MissTop10=6
+    - Non-Leaking Subset (10 strictly audited tasks where commit message contained no file path or file stem):
+      - `LEXICAL_ONLY`: R@1=20.0%, R@3=50.0%, R@5=60.0%, R@10=70.0%, MRR=0.3633
+      - `STRUCTURAL_ONLY`: R@1=10.0%, R@3=10.0%, R@5=20.0%, R@10=30.0%, MRR=0.1417
+      - `LEXICAL_PLUS_STRUCTURAL`: R@1=20.0%, R@3=50.0%, R@5=50.0%, R@10=60.0%, MRR=0.3500
+      - `LEXICAL_PLUS_PPR`: R@1=20.0%, R@3=50.0%, R@5=50.0%, R@10=60.0%, MRR=0.3500
+  - **Source A Discovery Shadow Replay**: Replayed 490 `FILE_READ` calls across 256 distinct targets in 151 episodes. Exactly 490 (100.0%) occurred in the pre-edit exploration phase before any mutating operations.
+  - **Overhead & Economics**: Building the full AST snapshot for 60 files and 848 symbols required only 180.70 ms and negligible memory (~2 MB). Budgeted signature maps compress the entire repository structure into 1KB (~254 tokens) to 8KB (~2046 tokens).
+- **DECISION**:
+  - Formally establish that the structural discovery lane belongs strictly to the non-authoritative CONTROL PLANE, distinct from the lossless EVIDENCE PLANE:
+    - `INDEX != EVIDENCE`
+    - `INDEX != AUTHORITY`
+    - `RANK != CORRECTNESS`
+    - `LOW_RANK != IRRELEVANT`
+    - `BUDGET_APPLIES_TO_INDEX_ONLY = True`
+    - `EVIDENCE_OVERRIDES_BUDGET = True`
+    - `DISCOVERY_READ_SUPPRESSION = False`
+    - `AUTO_CONTEXT_SELECTION = False`
+    - `INDEX_ONLY_SHADOW = True`
+  - Structural indices and budgeted maps may be used for exploration assistance, navigation, and explanation, but CANNOT be used to silently prune, suppress, or substitute for canonical source reads requested by the coding agent.
+  - Advance the structural shadow lane in this validated shadow-only state without active suppression.
+- **WHY**: Maintains evidence rigor and behavioral safety while delivering reproducible, explainable structural navigation with zero external runtime dependencies.
+- **ALTERNATIVES_REJECTED**:
+  - Active read suppression during discovery (would risk omitting critical context needed by the LLM before behavioral equivalence is independently proven).
+  - External language server protocol (LSP) or Tree-sitter binary daemons (unnecessary complexity and violates minimal dependency mission rule).
+  - Vector embeddings or LLM-based query expansion (nondeterministic, heavyweight, and violates offline determinism).
+- **REVERSIBILITY**: High. The structural shadow is completely decoupled from the evidence store, transform engine, and read receipt ledger.
