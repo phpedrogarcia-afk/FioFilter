@@ -715,3 +715,24 @@ current runtime behavior; they do not retroactively change what M01 implemented.
 - **WHY**: Preserves scientific rigor by distinguishing observed physical repetition from behavioral safety of context substitution.
 - **ALTERNATIVES_REJECTED**: Treating identical bytes as proof of safe reference substitution; claiming 260 KB of net context savings prior to shadow/A-B measurement.
 - **REVERSIBILITY**: High. Pure epistemic classification boundary; no runtime engine code is altered.
+
+## M06-D001 — Reexposure shadow results and selection of read receipt specialization
+
+- **QUESTION**: Does empirical shadow evaluation of exact redeliveries in real coding agent workloads authorize active suppression, and where should reexposure development focus?
+- **EVIDENCE**: Sequential shadow evaluation of all 4,430 calls in Source A (`bc4561d4...`) revealed:
+  - Exact Content Redeliveries: 1,128 calls (331,661 B).
+  - Same-Source Redeliveries: 68 calls (178,110 B).
+  - Final Shadow-Eligible Candidates: 20 calls (9,401 B raw, 2,625 B hypothetical reference, 6,776 B hypothetical avoided).
+  - Eligibility Retention: 3.61% of M05 repeated volume. 132.1 KB was excluded due to error/diagnostic markers, 33.0 KB due to sensitive material, 151.4 KB due to cross-source divergence, and 260 B due to economic non-expansion.
+  - File Read Opportunity: Same-path file rereads account for 32 calls and 168,727 bytes of exact repeated content, but generic text classifiers flag documentation discussing errors as failures.
+- **DECISION**: Formally record:
+  - Active redelivery suppression remains **UNAUTHORIZED**.
+  - `WHOLE_MISSION_SAVINGS = UNKNOWN`.
+  - Select `NEXT_LANE = READ_RECEIPT_SHADOW_SPECIALIZATION`.
+  - Prioritize design of a specialized read receipt evaluator with file system freshness, mtime, and worktree provenance.
+- **WHY**: FILE_READ contains over 76% of repeated volume (168 KB). Specialized read receipts with provenance can safely distinguish static file inspection from execution failure logs, unlocking substantial context reduction without risk.
+- **ALTERNATIVES_REJECTED**:
+  - Authorizing active suppression in M06 (rejected: requires shadow/A-B behavioral validation).
+  - Selecting generic reexposure active prototype (rejected: 96% of generic candidates fail evidence or economic gates).
+  - Rejecting reexposure lane (rejected: 168 KB same-path file opportunity remains massive).
+- **REVERSIBILITY**: High. Pure architectural direction; no runtime engine code is altered.
