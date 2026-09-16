@@ -29,8 +29,9 @@ M09 adapts proven mechanisms from two prominent donors:
 3. **High Observed Graph Health**:
    - Active worktree snapshot (60 Python files, 848 extracted symbols):
      - Parse Coverage: **100.0%** (60/60 files parsed without syntax error)
-     - Edge Coverage: **100.0%** (429/429 intra-repo import edges resolved)
-     - Graph Health Status: **`GRAPH_HEALTH_HIGH_OBSERVED`**
+      - `RECOGNIZED_LOCAL_IMPORT_RESOLUTION_COVERAGE`: **429 / 429** (all locally-resolved import candidates resolved within-repo)
+      - `GRAPH_RELATION_COMPLETENESS`: **UNKNOWN** — AST import edges only; CALLS, TEST_RELATES, REEXPORTS edges not yet extracted
+      - Graph Health Status: **`GRAPH_HEALTH_HIGH_OBSERVED`** (observed on extracted edge type only)
      - Snapshot Construction Time: **180.70 ms**
 4. **Commit-History Benchmark & Query Leakage Audit**:
    - Evaluated against FioFilter's own commit history using parent snapshot indexing and child commit changed files as ground truth targets across 4 ablation modes:
@@ -209,7 +210,18 @@ The benchmark was executed across 13 eligible historical commits in FioFilter's 
 ### 6.4 Key Empirical Insights:
 1. **Lexical Search Is the Foundational Anchor**: In software engineering tasks, agents formulate intents using domain terms (`store`, `receipt`, `shadow`, `census`). Pure lexical matching achieves **70.0% Recall@10** on non-leaking queries.
 2. **Graph Structure Alone Cannot Infer Intent**: `STRUCTURAL_ONLY` (relying on static in-degree centrality) achieves only 30.0% Recall@10. In software repositories, utility modules (e.g. `fiofilter/store.py`) have high static centrality, but a task about read receipts must prioritize read receipt modules regardless of utility centrality.
-3. **PPR Provides Neighborhood Expansion**: PPR acts as an effective secondary ranking signal to pull in related dependency neighbors (such as test files and imported managers) without overwhelming the primary lexical anchor.
+3. **PPR Provides Neighborhood Expansion (CLAIMED_ONLY)**: On the 10-commit non-leaking subset, both `LEXICAL_PLUS_PPR` and `LEXICAL_PLUS_STRUCTURAL` produce identical recall to `LEXICAL_ONLY` at Recall@1 and are strictly inferior at Recall@5 and Recall@10. **`PPR_VALUE_AS_IMPLEMENTED=NOT_PROVEN`** on this corpus. The neighbourhood-expansion hypothesis requires a larger, more representative task set before any value claim is warranted.
+
+### 6.5 Explicit Donor Hypothesis Result
+
+| Claim | Status |
+| :--- | :--- |
+| `CURRENT_GLOBAL_STRUCTURAL_SIGNALS_DO_NOT_BEAT_LEXICAL_BASELINE` | **PROVEN** on this 10-commit non-leaking corpus |
+| `PPR_VALUE_AS_IMPLEMENTED` | **NOT_PROVEN** (identical or inferior to LEXICAL_ONLY in all measured recall bands) |
+| `STRUCTURAL_ONLY_VIABLE_AS_STANDALONE` | **FALSE** — 30% Recall@10 is insufficient |
+| `GLOBAL_CENTRALITY_DISAMBIGUATES_TASK_INTENT` | **NOT_PROVEN** |
+
+These results are **negative results** — they are valid empirical outcomes and constitute success for M09 per mission contract.
 
 ---
 
@@ -222,6 +234,13 @@ Source A (`rollout-2026-08-23T14-06-11-01a02f96-42a2-7a80-b8bc-6d066d0e322f.json
 - **Read Episodes**: 151
 - **Pre-Edit Exploration Reads**: **490 / 490 (100.0%)**
 - **Post-Edit Exploration Reads**: **0 / 490 (0.0%)**
+
+### Source A Scope Boundaries:
+
+| Claim | Status |
+| :--- | :--- |
+| `SOURCE_A_DISCOVERY_ACTIVITY_CHARACTERIZED` | **YES** — read/write episode structure characterized |
+| `SOURCE_A_STRUCTURAL_RANK_REPLAY` | **NOT_PROVEN** — no ground-truth task→target labels extracted from Source A; characterization is episode-structure only, not ranking quality |
 
 ### Analysis:
 In Source A's execution trajectory, every file read occurred as an exploration or discovery step prior to any subsequent modification actions in that episode. This provides empirical evidence that:
@@ -239,7 +258,7 @@ The performance economics of `PYTHON_AST_LOCAL_RESOLVER_V1` were measured on the
 | :--- | :--- | :--- |
 | **Active Files Scanned** | 60 Python files | Full FioFilter repository worktree |
 | **Active Symbols Extracted** | 848 symbols | Classes, methods, functions, constants |
-| **Local Import Edges** | 429 directed edges | 100% intra-repo resolution |
+| **Local Import Edges** | 429 directed edges | `RECOGNIZED_LOCAL_IMPORT_RESOLUTION_COVERAGE=429/429`; `GRAPH_RELATION_COMPLETENESS=UNKNOWN` (IMPORT edges only) |
 | **Snapshot Construction Wall Time** | **180.70 ms** | Includes disk I/O, AST parse, graph resolution |
 | **Memory Footprint** | ~2.1 MB | In-memory AST snapshot and PageRank graph |
 | **13-Commit Benchmark Run Time** | **18.57 s** | Includes 13 Git plumbing extractions and rankings |
@@ -252,17 +271,31 @@ The structural snapshot requires less than 200 ms to construct from scratch and 
 
 ---
 
-## 9. Next Steps and Mission Hand-off
+## 9. Mission Verdict and Hand-off
 
-1. **Artifact Verification**:
-   - `m09_structural_snapshot_v1.json` (28 KB)
-   - `m09_commit_benchmark_v1.json` (24 KB)
-   - `m09_source_a_discovery_shadow_v1.json` (2.9 KB)
-   - `m09_structural_summary_v1.json` (3.8 KB)
-2. **Epistemic Classification**:
-   - `DISCOVERY_STRUCTURAL_SHADOW = VALIDATED_SHADOW_ONLY`
-   - `DISCOVERY_READ_SUPPRESSION = NO` (frozen, non-authoritative)
-   - `REEXPOSURE_LANE = READY_FOR_LIVE_CODEX_SHADOW` (frozen at M08)
-3. **Repository State**:
-   - PR opened for M09 against `main`.
-   - All tests passing with zero regressions.
+```
+M09_DISCOVERY_SHADOW_PASS_MORE_RANKING_EVIDENCE_REQUIRED
+```
+
+### Justification:
+- Structural shadow built, validated, and benchmarked. All invariants hold.
+- Negative donor hypothesis result: `CURRENT_GLOBAL_STRUCTURAL_SIGNALS_DO_NOT_BEAT_LEXICAL_BASELINE` — **this is a valid and valuable result.**
+- `PPR_VALUE_AS_IMPLEMENTED = NOT_PROVEN` on 13-commit corpus.
+- `SOURCE_A_STRUCTURAL_RANK_REPLAY = NOT_PROVEN` — task→target labels not available from Source A.
+- The next mission (M10) must first determine **WHY** lexical wins on this corpus and test the cheapest mechanisms that could improve retrieval — starting with a strong BM25-style lexical baseline and targeted structural relations, NOT more global graph complexity.
+
+### Epistemic Classification:
+- `DISCOVERY_STRUCTURAL_SHADOW = VALIDATED_SHADOW_ONLY`
+- `DISCOVERY_READ_SUPPRESSION = NO` (frozen, non-authoritative)
+- `REEXPOSURE_LANE = READY_FOR_LIVE_CODEX_SHADOW` (frozen at M08)
+- `GLOBAL_STRUCTURAL_SIGNALS_BEAT_LEXICAL = NOT_PROVEN`
+
+### Artifact Record:
+- `m09_structural_snapshot_v1.json` (28 KB)
+- `m09_commit_benchmark_v1.json` (24 KB)
+- `m09_source_a_discovery_shadow_v1.json` (2.9 KB)
+- `m09_structural_summary_v1.json` (3.8 KB)
+
+### Repository State:
+- PR #8 opened against `main`. All tests passing with zero regressions.
+

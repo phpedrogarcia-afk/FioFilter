@@ -809,6 +809,7 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   - Activating premature reference redelivery without agent-in-the-loop behavioral testing.
 - **REVERSIBILITY**: High. Shadow harnesses remain read-only and decoupled from core engine primitives.
 
+
 ---
 
 ## M09-D001 — Structural Discovery Shadow as Non-Authoritative Control Plane
@@ -817,7 +818,7 @@ current runtime behavior; they do not retroactively change what M01 implemented.
 - **EVIDENCE**:
   - **Donor Mechanism Evaluation**:
     - Aider RepoMap: Personalized PageRank (PPR) power iteration with damping alpha=0.85, task-personalized teleport seeds, compact budgeted symbol signature maps (1KB to 8KB).
-    - AgentMap: Strict decoupling of FILE_GRAPH from SYMBOL_INDEX, Graph Health accounting (parse coverage 100%, edge coverage 100%, status `GRAPH_HEALTH_HIGH_OBSERVED`), distinction of intra-repo candidates from external/stdlib roots.
+    - AgentMap: Strict decoupling of FILE_GRAPH from SYMBOL_INDEX, Graph Health accounting (parse_coverage=100%, `RECOGNIZED_LOCAL_IMPORT_RESOLUTION_COVERAGE=429/429`, `GRAPH_RELATION_COMPLETENESS=UNKNOWN` — AST IMPORT edges only; CALLS, TEST_RELATES, REEXPORTS not extracted), distinction of intra-repo candidates from external/stdlib roots.
   - **Single Implementation Backend**: `PYTHON_AST_LOCAL_RESOLVER_V1` implemented strictly via Python standard library `ast`, `hashlib`, `pathlib`, `subprocess` (zero heavy external dependencies, zero LSP servers, zero daemon processes, zero embeddings).
   - **Commit-History Benchmark**: Evaluated across 13 eligible historical commits in FioFilter's own Git repository using non-destructive Git plumbing (`git ls-tree` / `git show`):
     - All Eligible Commits (13 tasks):
@@ -830,7 +831,15 @@ current runtime behavior; they do not retroactively change what M01 implemented.
       - `STRUCTURAL_ONLY`: R@1=10.0%, R@3=10.0%, R@5=20.0%, R@10=30.0%, MRR=0.1417
       - `LEXICAL_PLUS_STRUCTURAL`: R@1=20.0%, R@3=50.0%, R@5=50.0%, R@10=60.0%, MRR=0.3500
       - `LEXICAL_PLUS_PPR`: R@1=20.0%, R@3=50.0%, R@5=50.0%, R@10=60.0%, MRR=0.3500
+  - **Explicit Donor Hypothesis Result**:
+    - `CURRENT_GLOBAL_STRUCTURAL_SIGNALS_DO_NOT_BEAT_LEXICAL_BASELINE`: **PROVEN** on 10-commit non-leaking corpus.
+    - `PPR_VALUE_AS_IMPLEMENTED`: **NOT_PROVEN** — identical or inferior to LEXICAL_ONLY in all measured recall bands.
+    - `STRUCTURAL_ONLY_VIABLE_AS_STANDALONE`: **FALSE** — 30% Recall@10 is insufficient.
+    - `GLOBAL_CENTRALITY_DISAMBIGUATES_TASK_INTENT`: **NOT_PROVEN**.
+    - These are valid empirical **negative results** and constitute success per M09 mission contract.
   - **Source A Discovery Shadow Replay**: Replayed 490 `FILE_READ` calls across 256 distinct targets in 151 episodes. Exactly 490 (100.0%) occurred in the pre-edit exploration phase before any mutating operations.
+    - `SOURCE_A_DISCOVERY_ACTIVITY_CHARACTERIZED`: YES — episode structure characterized.
+    - `SOURCE_A_STRUCTURAL_RANK_REPLAY`: NOT_PROVEN — no ground-truth task→target labels from Source A; ranking quality unverified.
   - **Overhead & Economics**: Building the full AST snapshot for 60 files and 848 symbols required only 180.70 ms and negligible memory (~2 MB). Budgeted signature maps compress the entire repository structure into 1KB (~254 tokens) to 8KB (~2046 tokens).
 - **DECISION**:
   - Formally establish that the structural discovery lane belongs strictly to the non-authoritative CONTROL PLANE, distinct from the lossless EVIDENCE PLANE:
@@ -845,7 +854,8 @@ current runtime behavior; they do not retroactively change what M01 implemented.
     - `INDEX_ONLY_SHADOW = True`
   - Structural indices and budgeted maps may be used for exploration assistance, navigation, and explanation, but CANNOT be used to silently prune, suppress, or substitute for canonical source reads requested by the coding agent.
   - Advance the structural shadow lane in this validated shadow-only state without active suppression.
-- **WHY**: Maintains evidence rigor and behavioral safety while delivering reproducible, explainable structural navigation with zero external runtime dependencies.
+  - **M09 VERDICT**: `M09_DISCOVERY_SHADOW_PASS_MORE_RANKING_EVIDENCE_REQUIRED`
+- **WHY**: Maintains evidence rigor and behavioral safety while delivering reproducible, explainable structural navigation with zero external runtime dependencies. Negative donor hypothesis result (structural does not beat lexical) is a valid finding that simplifies the M10 direction.
 - **ALTERNATIVES_REJECTED**:
   - Active read suppression during discovery (would risk omitting critical context needed by the LLM before behavioral equivalence is independently proven).
   - External language server protocol (LSP) or Tree-sitter binary daemons (unnecessary complexity and violates minimal dependency mission rule).
