@@ -463,21 +463,53 @@ def _parse_exec_input(raw: Any) -> str:
     if isinstance(decoded, dict):
         return _parse_exec_input(decoded)
 
-    wrapper = re.fullmatch(
-        r"\s*tools\.exec_command\(\s*\{(?P<body>.*)\}\s*\)\s*",
-        raw,
-        flags=re.DOTALL,
-    )
-    if wrapper is None:
+    # Check for multiple tool calls in a single script
+    all_tool_calls = re.findall(r"tools\.[a-zA-Z0-9_]+", raw)
+    if len(all_tool_calls) != 1 or all_tool_calls[0] != "tools.exec_command":
+        raise InvocationRejected("UNSTRUCTURED_INVOCATION", "unsupported or multiple tool calls")
+
+    m = re.search(r"tools\.exec_command\s*\(\s*\{", raw)
+    if m is None:
         raise InvocationRejected("UNSTRUCTURED_INVOCATION", "unsupported exec wrapper")
+    start_brace = m.end() - 1
+    depth = 0
+    quote: Optional[str] = None
+    escaped = False
+    end_brace = -1
+    for idx in range(start_brace, len(raw)):
+        ch = raw[idx]
+        if escaped:
+            escaped = False
+            continue
+        if ch == "\\" and quote != "'":
+            escaped = True
+            continue
+        if quote is not None:
+            if ch == quote:
+                quote = None
+            continue
+        if ch in ("'", '"', "`"):
+            quote = ch
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                end_brace = idx
+                break
+    if end_brace < 0:
+        raise InvocationRejected("UNSTRUCTURED_INVOCATION", "unterminated exec_command body")
+    body = raw[start_brace + 1 : end_brace]
+
     values: Dict[str, str] = {}
-    for field in _split_simple_js_fields(wrapper.group("body")):
+    for field in _split_simple_js_fields(body):
         match = re.fullmatch(
-            r"(?P<key>[A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(?P<value>.+)", field
+            r"(?P<key>[\"']?[A-Za-z_][A-Za-z0-9_-]*[\"']?)\s*:\s*(?P<value>.+)", field
         )
         if match is None or _SIMPLE_VALUE.fullmatch(match.group("value")) is None:
-            raise InvocationRejected("UNSTRUCTURED_INVOCATION", "unsupported wrapper field")
-        key = match.group("key")
+            continue
+        key = match.group("key").strip("\"'")
         if key in values:
             raise InvocationRejected("UNSTRUCTURED_INVOCATION", "duplicate wrapper field")
         values[key] = match.group("value")
@@ -521,22 +553,68 @@ def decode_execution_result(output_payload: Dict[str, Any]) -> ExecutionResult:
     """Decode only a structured exec result with explicit exit status."""
     if not isinstance(output_payload, dict):
         raise ResultRejected("UNSTRUCTURED_RESULT")
-    envelope = _coerce_result_envelope(output_payload.get("output"))
-    exit_code = envelope.get("exit_code")
-    content = envelope.get("output")
-    if isinstance(exit_code, bool) or not isinstance(exit_code, int):
-        raise ResultRejected("UNSTRUCTURED_RESULT", "missing integer exit_code")
-    if not isinstance(content, str):
-        raise ResultRejected("UNSTRUCTURED_RESULT", "missing text output")
-    truncated_raw = envelope.get("truncated", False)
-    if not isinstance(truncated_raw, bool):
-        raise ResultRejected("UNSTRUCTURED_RESULT", "truncated is not boolean")
-    truncated = truncated_raw or envelope.get("original_token_count") is not None
-    return ExecutionResult(
-        content=content.encode("utf-8"),
-        exit_code=exit_code,
-        truncated=truncated,
-    )
+    raw = output_payload.get("output")
+
+    # Synthetic or wrapped dictionary envelope
+    if isinstance(raw, dict) and "exit_code" in raw and "output" in raw:
+        exit_code = raw["exit_code"]
+        content = raw["output"]
+        if isinstance(exit_code, bool) or not isinstance(exit_code, int):
+            raise ResultRejected("UNSTRUCTURED_RESULT", "missing integer exit_code")
+        if not isinstance(content, str):
+            raise ResultRejected("UNSTRUCTURED_RESULT", "missing text output")
+        truncated = bool(raw.get("truncated", False)) or raw.get("original_token_count") is not None
+        return ExecutionResult(content=content.encode("utf-8"), exit_code=exit_code, truncated=truncated)
+
+    if isinstance(raw, str):
+        try:
+            decoded = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ResultRejected("UNSTRUCTURED_RESULT", "text is not a JSON object") from exc
+        if isinstance(decoded, dict):
+            return decode_execution_result({"output": decoded})
+        raise ResultRejected("UNSTRUCTURED_RESULT", "decoded result is not an object")
+
+    if isinstance(raw, list):
+        if len(raw) == 1 and isinstance(raw[0], dict) and "exit_code" in raw[0]:
+            return decode_execution_result({"output": raw[0]})
+        if len(raw) == 1 and isinstance(raw[0], dict) and isinstance(raw[0].get("text"), str):
+            try:
+                decoded = json.loads(raw[0]["text"])
+                if isinstance(decoded, dict) and "exit_code" in decoded:
+                    return decode_execution_result({"output": decoded})
+            except Exception:
+                pass
+
+        # Real Codex execution runner format:
+        # raw[0]["text"] contains runner status: "Script completed" or "Script failed"
+        if len(raw) >= 1 and isinstance(raw[0], dict) and isinstance(raw[0].get("text"), str):
+            t0 = raw[0]["text"]
+            exit_code = None
+            if t0.startswith("Script completed"):
+                exit_code = 0
+            elif t0.startswith("Script failed"):
+                m_code = re.search(r"exit code\s+(-?\d+)", t0, re.IGNORECASE)
+                exit_code = int(m_code.group(1)) if m_code else 1
+
+            if exit_code is not None:
+                content_parts = []
+                for it in raw[1:]:
+                    if isinstance(it, dict) and isinstance(it.get("text"), str):
+                        content_parts.append(it["text"])
+                content_str = "".join(content_parts)
+                truncated = (
+                    "truncated output" in content_str.lower()
+                    or "output truncated" in content_str.lower()
+                    or any(it.get("original_token_count") is not None for it in raw if isinstance(it, dict))
+                )
+                return ExecutionResult(
+                    content=content_str.encode("utf-8"),
+                    exit_code=exit_code,
+                    truncated=truncated,
+                )
+
+    raise ResultRejected("UNSTRUCTURED_RESULT", "unsupported output envelope")
 
 
 def fingerprint_jsonl_artifact(

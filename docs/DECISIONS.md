@@ -575,3 +575,40 @@ current runtime behavior; they do not retroactively change what M01 implemented.
 - **REVERSIBILITY**: Future missions may add separately named grammars only with
   synthetic counterexamples, negative controls and exact roundtrip evidence. No
   current transform or policy behavior changes.
+
+## M03-R4-D001 — Validation of RG_STANDARD_PATH_LINE_TEXT grammar and M04 Gate Authorization
+
+- **QUESTION**: Does real Codex historical session evidence validate that `RG_STANDARD_PATH_LINE_TEXT`
+  and/or `RG_PATH_LINE_COLUMN_TEXT` are safe, byte-exact, reproducible, and economically viable
+  for lossless grouping under an M04 transform investigation?
+- **EVIDENCE**:
+  - **Artifact Provenance**: Source A exists locally at `C:\Users\phped\.codex\sessions\2026\08\23\rollout-2026-08-23T14-06-11-01a02f96-42a2-7a80-b8bc-6d066d0e322f.jsonl`
+    (206,427,325 bytes, SHA-256 `bc4561d4588a73a6889ca38d8c180ae467e51eea5f023aaba7a222425cf350a0`,
+    Artifact ID: `M03-ARTIFACT-SHA256-BC4561D4588A73A6`, 35,040 total records, 4,430 custom tool calls/outputs paired).
+    Source B does not exist on disk (directory `2026\03` absent, no 16,076,013 B file found; inferred from UUID timestamp decoding).
+    Relationship is `DIFFERENT_ARTIFACT`. Artifact-level validation provenance is fully resolved on Source A.
+  - **Extraction & Characterization**: Extracted 23 clean candidates from 4,430 calls. All 23 belong to `RG_STANDARD_PATH_LINE_TEXT`.
+    0 occurrences of clean `RG_PATH_LINE_COLUMN_TEXT`.
+  - **Exact Byte Roundtrip**: 23 / 23 (100.0%) passed `encode(parse(raw)) == raw` byte-for-byte. 0 roundtrip failures.
+  - **Negative Controls**: 34 negative controls written across 8 distinct exclusion categories; verified 0 false admissions.
+  - **Headroom Donor Adversarial Tests**: 18 challenge cases tested (Windows drive paths, UNC paths, hyphens, dated paths,
+    CVE paths, digit-separated paths, colon in payload, duplicate matches, context separators, extensionless files, digit path segments).
+    0 ambiguous cases admitted. Fails closed to RAW on ambiguity.
+  - **Independent Review (`M03_R4_REAL_SEARCH_VALIDATION_V1`, Reviewer `ANTIGRAVITY_M03_R4`)**:
+    12 candidates reviewed across size quantiles: 10 assigned `SAFE_FOR_LOSSLESS_GROUPING`, 2 assigned `RAW_REQUIRED`
+    (economic non-expansion guard where candidates had 0 duplicate paths, e.g. 2 matches in 2 files, 4 matches in 4 files).
+    0 cases invalid or sensitive. Corrective retrieval risk assessed as 0 (lossless inline representation preserves 100% facts).
+  - **Lossless Grouping Economics**: Across 23 candidates (62,373 raw bytes), lossless candidate grouping produced 45,021 bytes,
+    yielding 17,352 bytes saved (27.82% reduction, or 4,338 tokens saved under `utf8_bytes_div_4_ESTIMATE`).
+- **DECISION**:
+  - Authorize `RG_STANDARD_PATH_LINE_TEXT` as **VALIDATED** for M04 transform investigation.
+  - Classify `RG_PATH_LINE_COLUMN_TEXT` as **MORE_REAL_EVIDENCE_REQUIRED** (retained in laboratory parser but deferred from M04).
+  - Do not implement any M04 transform in M03-R4.
+- **WHY**: Strict empirical evidence proves `RG_STANDARD_PATH_LINE_TEXT` occurs cleanly in real workloads, reconstructs byte-for-byte,
+  has zero false admissions on negative controls, fails closed on ambiguity, and yields substantial context reduction without evidence loss.
+- **ALTERNATIVES_REJECTED**:
+  - Authorizing `DUPLICATED_HEADERS` universally (rejected: only exact grammar ID is validated).
+  - Authorizing `RG_PATH_LINE_COLUMN_TEXT` without real workload evidence (rejected: zero real occurrences observed).
+  - Rejecting the search frontier or creating another methodology mission (rejected: real evidence is decisive).
+- **REVERSIBILITY**: If subsequent M04 transform implementation or consumer testing reveals unforeseen compatibility issues,
+  the transform contract can be refined or revoked without affecting T01 or baseline invariants.

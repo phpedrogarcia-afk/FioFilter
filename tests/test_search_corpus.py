@@ -11,9 +11,13 @@ from fiofilter.search_corpus import (
     RG_PATH_LINE_COLUMN_TEXT,
     RG_STANDARD_PATH_LINE_TEXT,
     CommandRejected,
+    InvocationRejected,
+    ResultRejected,
     RgParseError,
     classify_rg_command,
+    decode_execution_result,
     encode_rg_output,
+    extract_structured_exec_command,
     fingerprint_jsonl_artifact,
     parse_rg_output,
 )
@@ -329,3 +333,94 @@ class TestDedicatedRgExtractor:
         )
         assert summary["clean_candidate_count"] == 0
         assert summary["exclusion_counts"]["UNKNOWN_PRODUCER"] == 1
+
+
+class TestCodexRunnerAndHeadroomRegressions:
+    def test_codex_runner_envelope_success_and_failure(self):
+        # Success envelope: Script completed with stdout text
+        success_payload = {
+            "output": [
+                {"type": "text", "text": "Script completed"},
+                {"type": "text", "text": "src/a.py:1:match\n"},
+            ]
+        }
+        res_ok = decode_execution_result(success_payload)
+        assert res_ok.exit_code == 0
+        assert res_ok.content == b"src/a.py:1:match\n"
+        assert res_ok.truncated is False
+
+        # Failure envelope: Script failed with exit code
+        fail_payload = {
+            "output": [
+                {"type": "text", "text": "Script failed with exit code 2\n"},
+                {"type": "text", "text": "rg: error reading file\n"},
+            ]
+        }
+        res_fail = decode_execution_result(fail_payload)
+        assert res_fail.exit_code == 2
+        assert res_fail.content == b"rg: error reading file\n"
+
+        # Truncation marker envelope
+        trunc_payload = {
+            "output": [
+                {"type": "text", "text": "Script completed"},
+                {"type": "text", "text": "output content", "original_token_count": 15000},
+            ]
+        }
+        res_trunc = decode_execution_result(trunc_payload)
+        assert res_trunc.truncated is True
+
+    def test_codex_runner_envelope_rejects_unstructured(self):
+        with pytest.raises(ResultRejected):
+            decode_execution_result({"output": 12345})
+        with pytest.raises(ResultRejected):
+            decode_execution_result({"output": [{"type": "text", "text": "Some unformatted message"}]})
+
+    def test_real_codex_exec_wrapper_parsing(self):
+        # Real Codex wrapper with const r = await tools.exec_command(...)
+        raw_js = 'const r = await tools.exec_command({ cmd: "rg -n target src" }); text(r.output);'
+        call_payload = {"type": "custom_tool_call", "name": "exec_command", "input": raw_js}
+        cmd = extract_structured_exec_command(call_payload)
+        assert cmd == "rg -n target src"
+
+        # Reject multiple tool calls
+        multi_js = (
+            'const r1 = await tools.exec_command({ cmd: "rg -n target src" });\n'
+            'const r2 = await tools.exec_command({ cmd: "rg -n other src" });'
+        )
+        with pytest.raises(InvocationRejected) as exc:
+            extract_structured_exec_command({"type": "custom_tool_call", "name": "exec_command", "input": multi_js})
+        assert exc.value.reason == "UNSTRUCTURED_INVOCATION"
+
+    @pytest.mark.parametrize(
+        ("raw", "grammar", "expect_admit", "reason"),
+        [
+            (b"C:\\repo\\app.py:10:result\n", RG_STANDARD_PATH_LINE_TEXT, True, None),
+            (b"\\\\server\\share\\repo\\app.py:10:result\n", RG_STANDARD_PATH_LINE_TEXT, True, None),
+            (b"src/my-cool-app/test-runner.py:42:assert ok\n", RG_STANDARD_PATH_LINE_TEXT, True, None),
+            (b"logs/2026-05-03/run.log:15:started\n", RG_STANDARD_PATH_LINE_TEXT, True, None),
+            (b"advisories/CVE-2021-44228.md:99:vulnerability\n", RG_STANDARD_PATH_LINE_TEXT, True, None),
+            (b"data/part-01-2024-v2.txt:7:data row\n", RG_STANDARD_PATH_LINE_TEXT, True, None),
+            (b"src/a.py:10:5:col match\n", RG_PATH_LINE_COLUMN_TEXT, True, None),
+            (b"src/a.py:10:5:col match\n", RG_STANDARD_PATH_LINE_TEXT, False, "AMBIGUOUS_COLUMN_DELIMITER"),
+            (b"src/config.py:12:url = https://example.com:8080/api\n", RG_STANDARD_PATH_LINE_TEXT, True, None),
+            (b"src/a.py:10:dup\nsrc/a.py:10:dup\n", RG_STANDARD_PATH_LINE_TEXT, True, None),
+            (b"src/a.py:1:match\n--\nsrc/a.py:5:match\n", RG_STANDARD_PATH_LINE_TEXT, False, "UNSUPPORTED_RG_CONTEXT"),
+            (b"bin/run:25:exec\nMakefile:4:all:\n", RG_STANDARD_PATH_LINE_TEXT, True, None),
+            (b"build/123/output.py:40:match\n", RG_STANDARD_PATH_LINE_TEXT, True, None),
+            (b"some random stdout line\n", RG_STANDARD_PATH_LINE_TEXT, False, "UNRECOGNIZED_LINE"),
+            (b"Binary file dist/app.exe matches\n", RG_STANDARD_PATH_LINE_TEXT, False, "UNSUPPORTED_RG_BINARY_NOTICE"),
+            (b"\x1b[32msrc/app.py\x1b[0m:1:val\n", RG_STANDARD_PATH_LINE_TEXT, False, "UNSUPPORTED_RG_COLOR"),
+            (b'{"type":"match","data":{"path":{"text":"a.py"}}}\n', RG_STANDARD_PATH_LINE_TEXT, False, "UNSUPPORTED_RG_JSON"),
+            (b"a.py:12:\n", RG_STANDARD_PATH_LINE_TEXT, True, None),
+        ],
+    )
+    def test_headroom_donor_challenges(self, raw, grammar, expect_admit, reason):
+        if expect_admit:
+            parsed = parse_rg_output(raw, grammar)
+            assert encode_rg_output(parsed) == raw
+        else:
+            with pytest.raises(RgParseError) as exc:
+                parse_rg_output(raw, grammar)
+            if reason is not None:
+                assert exc.value.reason == reason
