@@ -684,3 +684,19 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   - Prematurely auto-activating T02 in generic engine or profiles without runtime producer evidence (rejected: preserves separation of transform correctness from integration architecture).
   - Delaying approval for further replay iterations (rejected: evidence on all 23 real candidates is unanimous).
 - **REVERSIBILITY**: Replay validation confirms existing behavior without changing code or APIs; future missions may integrate runtime metadata propagation without altering the validated transform or decoder.
+
+## M05-D001 — Selection of next development lane: Reexposure shadow layer
+
+- **QUESTION**: Based on empirical measurement of real Codex workloads, which context waste class presents the highest proven avoidable volume and where should subsequent development focus?
+- **EVIDENCE**: Complete census of Source A (`01a02f96`, 206,427,325 B, SHA-256 `bc4561d4...`) across 4,430 custom tool calls (20,515,430 total output bytes) revealed:
+  - Reexposure Waste (LeanCTX lane): 205 exact redeliveries totaling 447,645 gross bytes, yielding 260,775 bytes (~65,194 tokens under `utf8_bytes_div_4_ESTIMATE`) of strictly proven avoidable waste, plus 490 same-file reread events (32 identical saving 168,727 B, 19 overlapping range reads with 596 overlapping lines).
+  - Representation Waste (Headroom lane): 259 ripgrep calls evaluated; 15 admitted under T02 saving 7,909 proven avoidable bytes (~1,978 tokens).
+  - Discovery Cost (Aider/AgentMap lane): 10,733,497 bytes across 1,183 pre-mutation calls in 165 episodes (52.3% of workload). Only 29,366 bytes were proven redundant; the remainder represents essential exploratory context.
+  - Deduplicated total proven avoidable bytes: 268,684 bytes (1.31% of total output bytes). Reexposure constitutes 97.05% of all proven avoidable bytes, exceeding T02 representation headroom by ~33x.
+- **DECISION**: Select `NEXT_LANE = REEXPOSURE_SHADOW`. Prioritize design of a session-aware shadow reexposure elimination layer for future missions. Do not implement runtime shadow mechanics in M05. Record `WHOLE_MISSION_SAVINGS = UNKNOWN`.
+- **WHY**: Reexposure provides 33x greater proven byte-savings leverage than search grouping, operates on exact byte identity, preserves 100% of facts and authority, and avoids high-risk speculative filtering of exploratory reads.
+- **ALTERNATIVES_REJECTED**:
+  - Expanding static representation transforms first (low relative leverage; 7.9 KB vs 260.8 KB).
+  - Aggressive discovery pruning or pre-filtering (high risk of evidence loss and model degradation on reasoning context).
+  - Immediate implementation of hooks, proxy, or cache in M05 (violates mission scope and rigorous empirical gating).
+- **REVERSIBILITY**: High. This decision selects research direction; no engine, profile, or transform code is modified.
