@@ -736,3 +736,18 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   - Selecting generic reexposure active prototype (rejected: 96% of generic candidates fail evidence or economic gates).
   - Rejecting reexposure lane (rejected: 168 KB same-path file opportunity remains massive).
 - **REVERSIBILITY**: High. Pure architectural direction; no runtime engine code is altered.
+
+## M06-D002 — Metric scope reconciliation between M05 census and M06 funnel
+
+- **QUESTION**: Do the reported counts of M05 exact redeliveries (205 events, 260,775 B) and M06 funnel redeliveries (1,128 calls, 331,661 B) represent a contradiction or counting defect?
+- **EVIDENCE**: Investigation of event grouping confirmed two distinct scopes:
+  - M05 census grouped by `(target_identity, output_sha256)` where `target_identity != "UNKNOWN"` (requiring parsed path or command). The 205 events were the total deliveries across targeted duplicate clusters (74 first deliveries + 131 repeat deliveries), and 260,775 B was the sum of repeated deliveries.
+  - M06 funnel Step 2 evaluated universal content-hash recurrence across all 4,430 session calls (excluding first seen), capturing 1,018 cross-source matches (151,359 B) from differing tools/scripts before filtering down to same-source candidates.
+- **DECISION**: Formally record:
+  - `M05_BASELINE_SEMANTICS_DOCUMENTED = YES`
+  - `M06_FUNNEL_SEMANTICS_DOCUMENTED = YES`
+  - `METRIC_CONTRADICTION = NO`
+  The metrics represent non-interchangeable scopes: M05 evaluated structurally targeted duplicate groups, while M06 evaluated the top of a universal content-repetition funnel.
+- **WHY**: Maintains absolute precision and transparency in denominator reporting.
+- **ALTERNATIVES_REJECTED**: Conflating universal content repetition with targeted duplicate clusters; redefining M05 historical observations retroactively.
+- **REVERSIBILITY**: High. Pure epistemic and documentation clarification.

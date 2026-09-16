@@ -26,6 +26,22 @@ This proved physical byte redelivery across 205 events in Source A. However, phy
 - `PROVEN_SAFE_REFERENCE_REPLACEMENT`: `NO`
 - `WHOLE_MISSION_SAVINGS`: `UNKNOWN`
 
+### Metric-Semantic Reconciliation: M05 Baseline vs M06 Funnel
+
+A potential point of confusion is the numerical relationship between M05 and M06 counts:
+- **M05 Observation**: `EXACT_REDELIVERY_EVENTS_OBSERVED = 205` (total calls across duplicate groups) and `EXACT_REDELIVERY_BYTES_OBSERVED = 260,775` (repeated bytes excluding first delivery).
+- **M06 Funnel Step 2**: `EXACT_CONTENT_REDELIVERIES = 1,128` calls and `EXACT_CONTENT_REDELIVERY_BYTES = 331,661` bytes.
+
+These values use different scopes and are **not** interchangeable denominators:
+1. **M05 Baseline Semantics**: Grouped strictly by `(target_identity, output_sha256)` where `target_identity != "UNKNOWN"` (requiring a structurally parsed file path or command identity). The 205 events represent the total deliveries in these targeted clusters (74 first deliveries + 131 repeated deliveries = 205 calls), with 260,775 bytes in the repeated deliveries.
+2. **M06 Funnel Semantics**: Evaluates *any* tool output whose exact content SHA-256 appeared earlier anywhere in the session, without requiring prior source identity matching. This universal scope catches 1,018 cross-source redeliveries (151,359 B)—such as multiple ad-hoc scripts outputting `0`, `1`, `ok`, or empty strings—plus unclassified outputs.
+3. **Formal Reconciliation**:
+   - `M05_BASELINE_SEMANTICS_DOCUMENTED = YES`
+   - `M06_FUNNEL_SEMANTICS_DOCUMENTED = YES`
+   - `METRIC_CONTRADICTION = NO`
+
+The M06 funnel begins at universal content repetition (1,128 calls) and systematically filters by source identity (68 calls), evidence safety (28 calls), and economic non-expansion (20 calls).
+
 ---
 
 ## 2. Core Architecture & Models
