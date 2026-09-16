@@ -7,9 +7,10 @@
 
 The implemented surface is a Python API that accepts already captured bytes.
 It does not intercept Codex, run shell commands, install hooks, or call a model.
-M02 hardened the engine. M03 added an offline corpus harness; M03-R1 corrected
-its oracle methodology, R2 performed local review, and R3 adds a narrow clean
-search-corpus characterizer. No mission after M01 has added a compression mechanism.
+M02 hardened the engine. M03 added and independently validated an offline corpus
+method. M04 implements one lossless grouping transform for the exact validated
+`RG_STANDARD_PATH_LINE_TEXT` grammar. Automatic engine routing remains disabled
+until trusted structural producer evidence reaches the runtime.
 
 ## Development
 
@@ -37,7 +38,7 @@ assert RawStore().read(result.raw_ref) == raw
 
 This example creates no persistent files. Recovery bytes belong to the returned
 reference and disappear when that reference is released; no global archive is built.
-A transformed result includes a versioned T01 representation, its RAW reference,
+A transformed engine result includes a versioned T01 representation, its RAW reference,
 SHA-256, evidence class, decision, metrics and an in-memory audit record.
 
 Evidence class and persistence are independent. `RAW` means visible bytes are
@@ -54,12 +55,18 @@ explicit disk-write API for caller-assessed non-sensitive data.
 
 ## Reduction and preservation
 
-The twelve evidence classes remain. Current T01 eligibility is intentionally
+The twelve evidence classes remain. Current automatic T01 eligibility is intentionally
 narrow: complete known NOISE grammar in every mode, and complete known PROGRESS
 grammar in EXPLORE/BUILD. Unknown repeated sentences are not automatically noise.
 Diagnostics, failures, credentials, authority, canonical state, machine data and
 benchmarks remain RAW. Discovery and success summaries await their own consumer
 contracts; they are [aggressive future frontiers](docs/SAFE-AGGRESSIVE-FRONTIER.md).
+
+`T02_RG_STANDARD_GROUP_V1` is registered for explicit verified evaluation only.
+It groups contiguous path runs, preserves every match and has an independent
+byte-exact decoder. Generic `apply(content)`, all profiles and the engine decline
+it because current runtime metadata cannot prove structurally grounded producer
+identity. See the [M04 contract](docs/M04-RG-STANDARD-LOSSLESS-GROUPING.md).
 
 All input bytes are inspected, including diagnostic tails. Profiles only restrict
 core policy. A pipeline exception, invalid transform, missing inline fact,
@@ -95,12 +102,11 @@ Legacy M03 v3 corpora are rejected by default. Explicit
 validate them. A detector no-match remains `DETECTOR_NO_MATCH`, not
 `NON_SENSITIVE`. Real historical outputs remain local and outside Git.
 
-R2 observed 193 apparent pure `rg` candidates in one local artifact, but R3 found
-that artifact's identity conflicts with an older, much larger historical source
-description carrying the same session ID. The relationship remains `UNKNOWN`.
-The dedicated R3 extractor fingerprints the actual source and supports only two
-byte-exact plain-text grammars for characterization. This is not authorization to
-implement `DUPLICATED_HEADERS` or start M04.
+M03-R4 physically verified Source A and authorized only
+`RG_STANDARD_PATH_LINE_TEXT`. Source B is a historical report that was not
+reproduced on the current local filesystem; its reported fingerprint differs,
+but absence alone does not establish the physical relationship. The M03 local
+27.82% candidate reduction is not a whole-mission or operational-token claim.
 
 ## Project map
 
@@ -111,9 +117,11 @@ implement `DUPLICATED_HEADERS` or start M04.
 - [M03-R1 corpus/oracle audit](docs/M03-CORPUS-REPORT.md)
 - [M03-R2 local validation](docs/M03-R2-VALIDATION.md)
 - [M03-R3 clean-search corpus specification](docs/M03-R3-CLEAN-SEARCH-CORPUS.md)
+- [M03-R4 real search validation](docs/M03-R4-REAL-SEARCH-VALIDATION.md)
+- [M04 lossless rg grouping contract](docs/M04-RG-STANDARD-LOSSLESS-GROUPING.md)
 - `fiofilter/profiles/*.py`: sole operational policy source; YAML duplicates removed
 - `tests/`: synthetic regressions; `tests/corpus/`: executable schema and review protocol
 
 [GitHub](https://github.com/phpedrogarcia-afk/FioFilter) is the handoff surface for
-Codex Web and local Antigravity. M03-R3 stops before the local fingerprinted corpus
-run, independent grammar review, M04 selection or transform expansion.
+Codex Web and local Antigravity. M04 stops before automatic routing, local real
+replay of the concrete representation, shadow/A-B measurement or M05.

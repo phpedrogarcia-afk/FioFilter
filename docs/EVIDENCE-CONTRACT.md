@@ -26,7 +26,9 @@ the intact blob or a retained ephemeral reference. It is not promised for
 DO_NOT_PERSIST, missing/corrupt archives or discarded in-memory references.
 
 RAW recovery is distinct from reconstructing RAW from visible transformed bytes.
-T01 additionally supports the latter with an independent decoder/oracle.
+T01 additionally supports the latter with an independent decoder/oracle. The
+explicit M04 T02 evaluation API also has an independent decoder, but is not yet
+an engine disposition path.
 
 ## I4 — Inline-required facts
 
@@ -73,26 +75,30 @@ header overhead. Otherwise return RAW. This is local content cost only.
 ## I10 — Corrective retrieval economics
 
 Avoid reductions whose corrective retrieval cost defeats the mission benefit.
-V0 does not predict this cost. Externally supplied retrieval/turn observations
+V0 does not predict this cost. Zero information omitted by a lossless transform
+does not measure an operational corrective-retrieval rate. Externally supplied retrieval/turn observations
 are recorded separately and unmeasured values remain None. This invariant is
 an economic design constraint, not an implemented optimization model.
 
 ## I11 — Deterministic V0
 
 No LLM or network call exists in classification/transformation. Classification,
-policy and T01 content are deterministic for identical inputs. Clock-derived
+policy, T01 content and verified T02 content are deterministic for identical inputs. Clock-derived
 latency and optional audit timestamps are observations, not deterministic content.
 
 ## I12 — Profile non-weakening
 
 Canonical Python policy is the upper bound. The engine intersects profile
 whitelists/dispositions with core policy, checks the selected transform and
-restricts T01 to NOISE/PROGRESS. No YAML operational policy remains.
+restricts T01 to NOISE/PROGRESS. T02 appears in no profile whitelist; profiles
+cannot manufacture its producer evidence. No YAML operational policy remains.
 
 ## I13 — Source/batch identity
 
 A result retains source/command/session/stream/exit/truncation metadata in memory.
-Separate streams should be separate calls. No batching or interleaving capture is
+The free-form command field is not proof that extraction was structurally grounded
+or that the output was produced by one single-purpose process; this blocks T02
+automatic routing. Separate streams should be separate calls. No batching or interleaving capture is
 implemented. The library cannot reconstruct boundaries already lost upstream.
 
 ## I14 — Units and unknown measurements

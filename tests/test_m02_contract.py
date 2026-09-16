@@ -96,5 +96,7 @@ def test_current_docs_and_ci_match_runtime_contract():
     assert 'T04 is DEFERRED' in contract
     assert 'I16' in contract and 'I17/I18 enforcement' in contract
     from fiofilter.transforms import available_transform_ids
-    assert available_transform_ids() == frozenset({'T01'})
+    assert available_transform_ids() == frozenset({
+        'T01', 'T02_RG_STANDARD_GROUP_V1'
+    })
     assert 'setuptools.build_meta' in (ROOT / 'pyproject.toml').read_text()

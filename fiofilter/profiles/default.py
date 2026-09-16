@@ -8,8 +8,9 @@ from __future__ import annotations
 from fiofilter.profiles.base import BaseProfile, Policy, _RAW_ONLY, _TRANSFORM_T01
 from fiofilter.types import Disposition, EvidenceClass, Mode
 
-# V0: No lossless transforms implemented yet (T04 is a candidate, not ready)
-_LOSSLESS_POLICY = _RAW_ONLY  # placeholder until T04 is implemented
+# No approved machine-data transform. M04 T02 is lossless for one rg text
+# grammar but is not engine-routed and is not a MACHINE_DATA contract.
+_LOSSLESS_POLICY = _RAW_ONLY
 
 
 class DefaultProfile(BaseProfile):

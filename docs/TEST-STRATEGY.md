@@ -1,4 +1,4 @@
-# Test strategy — M02 foundation and M03 corpus integrity
+# Test strategy — M02 foundation through M04 lossless rg grouping
 
 Run `python -m pytest tests/ -v` before and after changes. Test count is not a
 quality target. Assertions should detect material evidence/storage failures and
@@ -12,6 +12,10 @@ synthetic, inert data, never real credentials or private source material.
 - **Visible T01 reconstruction**: `decode_visible(output) == input`, independently
   of a RAW store. Header/count/boundary tampering and reserved literal collisions
   must reject; LF/CRLF/tails/order survive. Header overhead counts against savings.
+- **Visible T02 reconstruction**: verified evaluation requires producer evidence,
+  the authorized grammar and `decode_visible(encode(parse(raw))) == raw`.
+  Contiguous runs preserve A/B/A order and every duplicate; generic engine apply
+  remains disabled while structural producer metadata is unavailable.
 - **Evidence**: full input, including late/hidden failures and mixed warnings,
   remains RAW. Nonzero exit overrides every profile/mode. Unknown repetitions
   never establish noise eligibility. Protected classes cannot acquire T01 through
@@ -67,6 +71,13 @@ UNC paths; line/column grammars; duplicate multiplicity; payload colons; LF/CRLF
 and byte-exact parser round trips. End-to-end extraction tests use only temporary
 synthetic JSONL and verify separate clean/negative sets with no oracle assignment.
 
+M04 adds `test_m04_rg_standard_group.py`: exact contiguous-run order, A/B/A path
+reappearance, duplicate multiplicity, Windows/UNC/hyphen/date/CVE/digit-heavy and
+long paths, payload colons, empty payload, LF/CRLF/tails, marker collisions,
+decoder tampering, every unauthorized grammar, producer/exit/truncation gates,
+no-expansion, registry-without-routing and deterministic generated valid/ambiguous
+cases. All fixtures are synthetic and inert.
+
 These constitute **VERIFIED IN CURRENT TEST CORPUS**, not exhaustive semantic
 proof. See `M02-AUDIT.md` for scoped guarantee classifications and measured results.
 
@@ -89,14 +100,15 @@ repository branch-protection required check; no administration settings are chan
 
 No original FioOS/P14/M03 real corpus is bundled or replayed. The v4 loader and
 replay harness are implemented, but historical M03 percentages were not
-reproduced in M03-R1 and their original labels were not independent. The R3 search
-parser proves only its two synthetic grammar contracts; the historical clean-corpus
-run and independent review remain local future work. No universal
+reproduced in M03-R1 and their original labels were not independent. The M03 parser
+and R4 local report validate one grammar; raw historical bytes remain outside Git.
+The concrete M04 representation still requires a local real replay, and automatic
+engine routing requires trusted producer metadata. No universal
 classifier/secret detection, original merged-stream
 interleaving, upstream truncation recovery, arbitrary filesystem hard-link support,
 OS crash/power-loss durability, hostile filesystem protection, Python-version-wide
 matrix, whole-mission economics or integration behavior is established.
 
-T02–T05, batching, M04 and predictive retrieval remain deferred. Future JSON tests must
+Legacy template folding, T03–T05, batching, automatic T02 routing and predictive retrieval remain deferred. Future JSON tests must
 establish consumer contracts; parse equality alone is insufficient. Seeded tests
 use the standard library and do not add a fuzz framework dependency.

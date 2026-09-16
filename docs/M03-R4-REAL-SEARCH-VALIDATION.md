@@ -35,8 +35,20 @@ A bounded search was executed across `C:\Users\phped\.codex` for session ID
 - **Source B Origin**: The path for Source B in M03-R2 was inferred from the UUIDv7
   timestamp prefix (`01a02f96` corresponds to 2026-03-08), but the actual session file
   was stored under rollout date directory `2026\08\23`. Directory `2026\03` does not exist on disk.
-- **Source Relationship**: `DIFFERENT_ARTIFACT` (Source B is absent on local filesystem).
-- **Validation Artifact Provenance**: **RESOLVED** on `M03-ARTIFACT-SHA256-BC4561D4588A73A6`.
+- **Source Relationship**: current physical relationship is `UNKNOWN`. Source B's
+  historical reported fingerprint differs from Source A's measured fingerprint,
+  but Source B's physical bytes were unavailable for a current comparison. Absence
+  from the local filesystem alone does not prove an artifact relationship.
+- **Validation Artifact Provenance**: **RESOLVED for Source A** on
+  `M03-ARTIFACT-SHA256-BC4561D4588A73A6`; this does not resolve Source B physically.
+
+```text
+SOURCE_A_PHYSICALLY_VERIFIED=YES
+SOURCE_B_CURRENTLY_REPRODUCIBLE=NO
+SOURCE_B_STATUS=HISTORICAL_NOT_REPRODUCED
+REPORTED_FINGERPRINTS_DIFFER=YES
+SOURCE_PHYSICAL_RELATION=UNKNOWN
+```
 
 ---
 
@@ -154,7 +166,9 @@ $$\text{encode}(\text{parse}(\text{raw})) \equiv \text{raw}$$
 - Sensitivity assessment acceptable: **YES** (no credentials/tokens detected)
 - Byte roundtrip pass: **YES** (12 / 12)
 - All facts retained inline: **YES**
-- Corrective retrieval plausibly required: **NO** (0 facts omitted)
+- Lossless information omission: **0 facts omitted**
+- Information-loss-induced retrieval required by contract: **NO**
+- Operational corrective retrieval rate: **UNKNOWN_UNTIL_SHADOW_OR_AB**
 
 ---
 
@@ -207,7 +221,8 @@ No files, line numbers, or payloads are omitted or summarized.
 | `AMBIGUOUS_CASES_FAIL_RAW` | **PASS (0 admitted)** | **PASS** |
 | `NONTRIVIAL_REDUCTION` | **PASS (27.82% net, 17,352 B)** | UNKNOWN |
 | `SENSITIVE_DATA_COMMITTED_NO` | **PASS (0 sensitive bytes)** | **PASS** |
-| `CORRECTIVE_RETRIEVAL_RISK_ASSESSED` | **PASS (0 facts omitted)** | **PASS** |
+| `LOSSLESS_INFORMATION_OMISSION` | **0 facts omitted** | **0 facts omitted** |
+| `OPERATIONAL_CORRECTIVE_RETRIEVAL_RATE` | **UNKNOWN_UNTIL_SHADOW_OR_AB** | **UNKNOWN_UNTIL_SHADOW_OR_AB** |
 | **M04_READY** | **YES** | **NO** |
 | **FINAL GATE DECISION** | **`VALIDATED`** | **`MORE_REAL_EVIDENCE_REQUIRED`** |
 

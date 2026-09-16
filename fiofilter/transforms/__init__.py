@@ -1,18 +1,8 @@
-"""
-fiofilter.transforms — Transform registry.
+"""Transform registry.
 
-V0 transforms:
-  T01 — Exact duplicate-line folding (DuplicateLineFold)
-
-T03, T04, T05 are CANDIDATES defined in docs/ARCHITECTURE.md.
-They are NOT implemented in V0. Any code attempting to import
-them from this package in V0 will raise ImportError.
-
-Only after a separately authorized post-M02 mission:
-  1. Implement in t0N_name.py following the Transform ABC
-  2. Add to _REGISTRY below
-  3. Write test oracle in tests/test_transforms.py
-  4. Record decision in docs/DECISIONS.md
+T01 is engine-routed for its established NOISE/PROGRESS contract. T02 is the
+M04 lossless rg grammar transform; it is registered for direct verified use but
+profiles do not route it until producer evidence reaches the engine.
 """
 
 from __future__ import annotations
@@ -21,15 +11,20 @@ from typing import Dict, Optional, Type
 
 from fiofilter.transforms.base import Transform
 from fiofilter.transforms.t01_dup_fold import DuplicateLineFold
+from fiofilter.transforms.t02_rg_standard_group import (
+    TRANSFORM_ID as T02_RG_STANDARD_GROUP_ID,
+    RgStandardLosslessGrouping,
+)
 
 # Transform registry: transform_id → Transform class
 _REGISTRY: Dict[str, Type[Transform]] = {
     "T01": DuplicateLineFold,
+    T02_RG_STANDARD_GROUP_ID: RgStandardLosslessGrouping,
 }
 
-# Transforms proven lossless for MACHINE_DATA (I8).
-# T01 is NOT lossless for machine data (folds lines, may break structured formats).
-# T04 (JSON minification) is a candidate but NOT yet proven or implemented.
+# Transforms proven lossless for MACHINE_DATA (I8). T02 is byte-reversible for
+# one rg text grammar, not a machine-data consumer contract, so it is not listed.
+# T01 may break structured formats; T04 remains unimplemented.
 LOSSLESS_TRANSFORM_IDS: frozenset = frozenset([
     # "T04",  # JSON minification — requires independent contract and approval
 ])

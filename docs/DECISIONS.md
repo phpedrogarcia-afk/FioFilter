@@ -586,7 +586,9 @@ current runtime behavior; they do not retroactively change what M01 implemented.
     (206,427,325 bytes, SHA-256 `bc4561d4588a73a6889ca38d8c180ae467e51eea5f023aaba7a222425cf350a0`,
     Artifact ID: `M03-ARTIFACT-SHA256-BC4561D4588A73A6`, 35,040 total records, 4,430 custom tool calls/outputs paired).
     Source B does not exist on disk (directory `2026\03` absent, no 16,076,013 B file found; inferred from UUID timestamp decoding).
-    Relationship is `DIFFERENT_ARTIFACT`. Artifact-level validation provenance is fully resolved on Source A.
+    Source A is physically verified. Source B is `HISTORICAL_NOT_REPRODUCED`.
+    Their reported fingerprints differ, but the current physical relationship is
+    `UNKNOWN` because Source B bytes were unavailable; absence alone is not proof.
   - **Extraction & Characterization**: Extracted 23 clean candidates from 4,430 calls. All 23 belong to `RG_STANDARD_PATH_LINE_TEXT`.
     0 occurrences of clean `RG_PATH_LINE_COLUMN_TEXT`.
   - **Exact Byte Roundtrip**: 23 / 23 (100.0%) passed `encode(parse(raw)) == raw` byte-for-byte. 0 roundtrip failures.
@@ -597,7 +599,8 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   - **Independent Review (`M03_R4_REAL_SEARCH_VALIDATION_V1`, Reviewer `ANTIGRAVITY_M03_R4`)**:
     12 candidates reviewed across size quantiles: 10 assigned `SAFE_FOR_LOSSLESS_GROUPING`, 2 assigned `RAW_REQUIRED`
     (economic non-expansion guard where candidates had 0 duplicate paths, e.g. 2 matches in 2 files, 4 matches in 4 files).
-    0 cases invalid or sensitive. Corrective retrieval risk assessed as 0 (lossless inline representation preserves 100% facts).
+    0 cases invalid or sensitive. Information omission is 0 under the lossless
+    contract; operational corrective retrieval remains unmeasured until shadow/A-B.
   - **Lossless Grouping Economics**: Across 23 candidates (62,373 raw bytes), lossless candidate grouping produced 45,021 bytes,
     yielding 17,352 bytes saved (27.82% reduction, or 4,338 tokens saved under `utf8_bytes_div_4_ESTIMATE`).
 - **DECISION**:
@@ -612,3 +615,38 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   - Rejecting the search frontier or creating another methodology mission (rejected: real evidence is decisive).
 - **REVERSIBILITY**: If subsequent M04 transform implementation or consumer testing reveals unforeseen compatibility issues,
   the transform contract can be refined or revoked without affecting T01 or baseline invariants.
+
+## M04-D001 — Lossless contiguous-run grouping with engine metadata gate
+
+- **QUESTION**: How can the authorized `RG_STANDARD_PATH_LINE_TEXT` grammar be
+  grouped without changing order, multiplicity, byte reconstruction or the M03
+  producer boundary, and how far may the current engine integrate it?
+- **EVIDENCE**: M03-R4 observed 23 real clean cases, 23/23 parser roundtrips,
+  34 negative controls with zero false admissions, 18 donor ambiguity challenges
+  with zero admissions, and a bounded independent review. The current `ToolResult`
+  carries a free-form command and exit/truncation fields but no provenance bit
+  proving that command extraction was structurally grounded and single-purpose.
+  M03-R4 also measured no information omission, not an operational corrective
+  retrieval rate. Source A is physically verified; Source B is historical and
+  currently unreproduced, so their current physical relationship remains unknown.
+- **DECISION**: Implement exactly one transform, `T02_RG_STANDARD_GROUP_V1`, using
+  the already validated M03 parser. Encode only contiguous runs, repeat a path
+  header when the path returns after another run, and require an independent
+  decoder to reconstruct exact bytes. Expose structured producer evidence and
+  complete transform metadata through a verified evaluation API. Register the
+  transform, but keep generic `apply`, engine selection and every profile route
+  disabled until trusted structural producer evidence is propagated at runtime.
+  Treat non-reducing valid inputs as RAW with
+  `VALID_GRAMMAR_NO_ECONOMIC_GAIN`.
+- **WHY**: Contiguous runs retain global sequence and every occurrence while
+  removing repeated path bytes. The metadata gate preserves the empirical M03
+  admission boundary instead of treating arbitrary discovery-shaped text as rg.
+  The full versioned ID avoids equating this transform with the older unimplemented
+  short-name T02 template-folding proposal.
+- **ALTERNATIVES_REJECTED**: Global grouping; ranking or dropping matches/files;
+  best-effort parsing; authorizing column/context/heading/JSON/color/binary output;
+  allowing profiles to infer producer evidence; using zero omitted facts as a
+  measured corrective-retrieval rate; delaying the transform for another M03 loop.
+- **REVERSIBILITY**: Removing the registry entry removes the isolated feature;
+  no engine/profile path currently depends on it. A later metadata mission may
+  add automatic routing without changing this representation or decoder contract.

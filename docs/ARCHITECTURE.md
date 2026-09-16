@@ -16,7 +16,7 @@ Codex. M02 supersessions are recorded in `DECISIONS.md`.
 4. Restrict eligibility for incomplete input, unsupported content hints, stderr,
    unknown stream identities and Git command metadata. Metadata never establishes
    that output is safe to compress. Unknown profiles return RAW.
-5. Prepare disk or reference-owned ephemeral RAW recovery before T01. If storage
+5. Prepare disk or reference-owned ephemeral RAW recovery before an engine-routed transform. If storage
    is forbidden or preparation fails, return RAW; never fabricate a disk reference.
 6. Run T01 only for eligible NOISE/PROGRESS. Validate bytes, strict size reduction,
    inline facts and their occurrences, and independent visible decoding == RAW.
@@ -43,6 +43,12 @@ use T01 in all modes. PROGRESS requires every line to match a known progress or
 noise grammar and may use T01 in EXPLORE/BUILD. Other classes are RAW in current
 V0. Discovery, diagnostics and success output require future consumer contracts;
 this is a transform-scope limit, not a claim they are universally irreducible.
+
+M04 registers `T02_RG_STANDARD_GROUP_V1` but does not add it to core/profile
+whitelists or engine selection. Its verified evaluation API requires explicit
+structural command provenance, a single ripgrep producer, exit 0, complete output
+and the exact authorized grammar. Current `ToolResult.command` is free-form and
+cannot by itself establish that provenance, so automatic activation remains RAW.
 
 There is no session object, mutable mode state or one-way escalation. A failure
 forces RAW on that result and never locks later calls into PROVE or RAW.
@@ -116,6 +122,16 @@ sequences and bare CR decline. Marker/header overhead must pay for itself.
 `decode_visible` rejects malformed bounds and has a bounded output allocation.
 The engine compares decoded bytes to RAW independently of disk/ephemeral recovery.
 T01 is a representation for a human/model, never a machine-format minifier.
+
+## T02 RG standard grouping v1
+
+The M04 transform imports the validated M03 parser rather than defining another
+rg grammar. It emits a versioned header and length-delimited path header for each
+contiguous run, followed by every original line number, payload and line ending.
+An A/B/A sequence therefore emits three runs; paths are never globally regrouped.
+The independent decoder must reproduce RAW byte for byte. Reserved-marker input,
+decoder mismatch, ambiguity, unauthorized grammar and non-reducing candidates
+return RAW. This direct API is deterministic but not engine-routed.
 
 ## Metadata, batching and truncation
 
