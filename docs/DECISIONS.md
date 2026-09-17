@@ -1013,3 +1013,42 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   - Hashing entire filesystem indiscriminately (rejected: creates noisy invalidations from unrelated files).
   - Calling index-reuse queries "full warm cache" (rejected: obscures essential state validation overhead).
 - **REVERSIBILITY**: High. V2 digest and cache keys are purely in-memory and isolated to the discovery shadow harness.
+
+
+---
+
+## M12-D001 — FioFilter V0 Explicit Integration Spine
+
+- **QUESTION**: Has FioFilter reached a coherent explicit V0 whose existing proven capabilities can operate together without widening authority?
+- **EVIDENCE**:
+  - **Integrated Architecture**: Unified existing proven components under `FioFilterV0Lab` (`fiofilter/v0.py`) and CLI (`fiofilter/cli.py`, `python -m fiofilter`):
+    - BM25 Discovery Runtime Shadow (`fiofilter/discovery_runtime_shadow.py`) with V2 content-sensitive fingerprinting (`WORKTREE_STATE_DIGEST_V2`).
+    - Read Receipt Shadow Evaluator (`fiofilter/read_receipt.py`, `fiofilter/runtime_shadow.py`).
+    - Lossless ripgrep grouping (`fiofilter/transforms/t02_rg_standard_group.py`) under caller-supplied `RgStandardEvidence`.
+  - **Capability Registry**: Established explicit registry with 6 non-collapsing lifecycle states: `IMPLEMENTED`, `VALIDATED_OFFLINE`, `SHADOW_READY`, `LIVE_VALIDATED`, `ACTIVE_AUTHORIZED`, `PRODUCTION_READY`. All capabilities remain `NOT_PRODUCTION_READY`.
+  - **Cross-Component Invariants**:
+    - `DISCOVERY_RANKING_CANNOT_AUTHORIZE_READ_SUPPRESSION = True`
+    - `READ_RECEIPT_CANNOT_AUTHORIZE_TRANSFORM = True`
+    - `T02_CANNOT_HIDE_CRITICAL_EVIDENCE = True`
+    - `SHADOW_CANNOT_CHANGE_RAW_OUTPUT = True`
+    - `UNKNOWN_ANYWHERE_CAN_FAIL_TO_RAW = True`
+    - `CAPABILITY_DOES_NOT_GRANT_AUTHORITY = True`
+    - `ENGINE_METADATA_GATE_REMAINS = True`
+    - `DEFAULT_DISPOSITION = RAW`
+  - **End-to-End Laboratory Scenario**: Deterministically executes task query navigation -> file read -> repeated read -> search output -> metrics accounting in ~350 ms. Exact RAW bytes delivered across all reading and search stages.
+  - **Accounting Integrity**: Formally separated `ACTUAL_VISIBLE_BYTES_REDUCED` (0 B in default lab) from `SHADOW_HYPOTHETICAL_BYTES_AVOIDED` (49,058 B in repeated read). Forbidden from being summed.
+  - **Failure Isolation & Privacy**: Exceptions fail open to RAW bytes; local ledgers store only SHA-256 hashes without raw task queries.
+  - **Tests**: 17 new tests in `tests/test_v0_integration.py` (508 total across full test suite passing).
+- **DECISION**:
+  - Authorize the FioFilter V0 Explicit Integration Spine.
+  - Declare project status: `V0_EXPLICIT_LAB_COMPLETE`.
+  - Discovery and Reexposure lanes both hold at: `READY_FOR_LIVE_CODEX_SHADOW`.
+  - Next milestone when Codex resumes: `LIVE_SHADOW_VALIDATION`.
+  - **M12 CANONICAL VERDICT**: `M12_V0_EXPLICIT_LAB_PASS`.
+- **WHY**: M12 provides a single, coherent, and safe interface for developers to inspect and evaluate FioFilter's capabilities without introducing unauthorized runtime hooks, proxy interception, or autonomous context manipulation.
+- **ALTERNATIVES_REJECTED**:
+  - Adding more offline optimization algorithms before integrating V0 (rejected: violates phase discipline).
+  - Summing hypothetical reference savings with actual transform savings (rejected: misleading accounting).
+  - Installing background daemons or auto-intercepting Codex/Antigravity sessions (rejected: strictly prohibited).
+  - Claiming production readiness from offline lab pass (rejected: honest lifecycle boundaries).
+- **REVERSIBILITY**: High. Standalone integration layer with zero global hooks or side effects.

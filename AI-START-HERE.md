@@ -68,3 +68,12 @@ sensitivity or required facts into the subject under test. Detector no-match is
 not a non-sensitive assessment. Use only `ORACLE:*` metric scopes for reviewed
 claims; `HEURISTIC:*` scopes are diagnostic. Legacy v3 input requires explicit
 `M03_V3_AS_HEURISTIC` demotion.
+
+## V0 Explicit Lab Status (M12)
+
+FioFilter V0 integrates proven offline components behind one explicit local laboratory interface:
+- CLI: `python -m fiofilter status`
+- Full reference: [V0-EXPLICIT-LAB.md](docs/V0-EXPLICIT-LAB.md)
+- Project Status: `V0_EXPLICIT_LAB_COMPLETE`
+- Discovery & Reexposure Lanes: `READY_FOR_LIVE_CODEX_SHADOW`
+- Default behavior remains strict RAW-first; no automatic hooks, proxies, MCP daemons, or read suppression exist.
