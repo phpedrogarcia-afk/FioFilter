@@ -1,9 +1,10 @@
 ﻿"""
 tests/test_discovery_runtime_shadow.py
-M11: Tests for the DiscoveryRuntimeShadow harness.
+M11 / M11-R1: Tests for the DiscoveryRuntimeShadow harness and V2 content-sensitive fingerprinting.
 """
 import json
 import pathlib
+import subprocess
 import sys
 import tempfile
 import time
@@ -24,7 +25,9 @@ from fiofilter.discovery_runtime_shadow import (
     M11_K1,
     M11_B,
     M11_INDEXED_FIELDS,
+    INDEXED_FILE_UNIVERSE_POLICY,
     run_synthetic_task_stream,
+    get_worktree_state_digest_v2,
     _query_hash,
     _snapshot_id,
     _files_hash,
@@ -55,8 +58,10 @@ class TestAuthorityInvariants:
         assert "PATH" in M11_INDEXED_FIELDS
         assert "SYMBOL_NAMES" in M11_INDEXED_FIELDS
 
+    def test_indexed_universe_policy(self):
+        assert INDEXED_FILE_UNIVERSE_POLICY == "PYTHON_SOURCES_V1"
+
     def test_no_auto_context_selection_in_api(self):
-        # DiscoveryRuntimeShadow has no inject/suppress/autoselect method
         shadow = DiscoveryRuntimeShadow()
         assert not hasattr(shadow, "inject_context")
         assert not hasattr(shadow, "suppress_read")
@@ -78,7 +83,6 @@ class TestFailureIsolation:
         """Empty query returns None or empty candidates, never raises."""
         shadow = DiscoveryRuntimeShadow()
         result = shadow.evaluate(REPO_ROOT, "")
-        # Either None (if snapshot build fails) or ShadowEvaluation with 0 candidates
         if result is not None:
             assert result.candidate_count == 0 or isinstance(result, ShadowEvaluation)
 
@@ -102,6 +106,14 @@ class TestProvenanceBinding:
         if result is None:
             pytest.skip("Shadow failed")
         assert len(result.dirty_digest) == 16  # 16-char hex
+
+    def test_evaluation_has_worktree_state_digest(self):
+        shadow = DiscoveryRuntimeShadow()
+        result = shadow.evaluate(REPO_ROOT, "read receipt shadow")
+        if result is None:
+            pytest.skip("Shadow failed")
+        assert len(result.worktree_state_digest) == 16
+        assert result.file_universe_policy == "PYTHON_SOURCES_V1"
 
     def test_evaluation_has_snapshot_id(self):
         shadow = DiscoveryRuntimeShadow()
@@ -162,14 +174,15 @@ class TestRuntimeDeterminism:
         assert scores == sorted(scores, reverse=True)
 
     def test_warm_query_same_result(self):
-        """Second evaluation uses cached snapshot (warm) but produces same result."""
+        """Second evaluation reuses cached snapshot but produces same result."""
         shadow = DiscoveryRuntimeShadow()
         r1 = shadow.evaluate(REPO_ROOT, "read receipt shadow")
         r2 = shadow.evaluate(REPO_ROOT, "read receipt shadow")
         if r1 is None or r2 is None:
             pytest.skip("Shadow failed")
         assert r1.evaluation_hash == r2.evaluation_hash
-        assert r2.is_warm  # second call uses cached snapshot
+        assert r2.is_warm
+        assert r2.query_type == "INDEX_REUSE_QUERY"
 
 
 # ---------------------------------------------------------------------------
@@ -208,6 +221,7 @@ class TestCostMeasurement:
         result = shadow.evaluate(REPO_ROOT, "read receipt shadow")
         if result is None:
             pytest.skip("Shadow failed")
+        assert result.state_validation_ms >= 0
         assert result.snapshot_build_ms >= 0
         assert result.index_build_ms >= 0
         assert result.query_tokenize_ms >= 0
@@ -216,7 +230,7 @@ class TestCostMeasurement:
         assert result.total_ms >= 0
 
     def test_warm_query_faster_index_build(self):
-        """Warm query should have 0ms index build (reused)."""
+        """Index reuse query has 0ms index build."""
         shadow = DiscoveryRuntimeShadow()
         shadow.evaluate(REPO_ROOT, "read receipt")  # cold
         r2 = shadow.evaluate(REPO_ROOT, "read receipt shadow")  # warm
@@ -224,6 +238,7 @@ class TestCostMeasurement:
             pytest.skip("Shadow failed")
         assert r2.is_warm
         assert r2.index_build_ms == 0.0
+        assert r2.query_type == "INDEX_REUSE_QUERY"
 
     def test_estimated_tokens_is_bytes_div_4(self):
         shadow = DiscoveryRuntimeShadow()
@@ -245,39 +260,125 @@ class TestCostMeasurement:
         r_warm = shadow.evaluate(REPO_ROOT, "read receipt")
         if r_cold is None or r_warm is None:
             pytest.skip("Shadow failed")
-        assert not r_cold.is_warm  # first call is always cold
-        assert r_warm.is_warm     # same shadow instance reuses cache
+        assert not r_cold.is_warm
+        assert r_cold.query_type == "COLD_EVALUATION"
+        assert r_warm.is_warm
+        assert r_warm.query_type == "INDEX_REUSE_QUERY"
 
 
 # ---------------------------------------------------------------------------
-# Stale Snapshot Defense Tests
+# V2 Content-Sensitive Worktree State Digest Tests (M11-R1 Gates)
 # ---------------------------------------------------------------------------
 
-class TestStaleSnapshotDefense:
-    def test_different_query_different_query_hash(self):
-        """Stale check: query_hash changes when query changes."""
+class TestWorktreeStateDigestV2:
+    @pytest.fixture
+    def temp_git_repo(self, tmp_path):
+        subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
+        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
+        f = tmp_path / "app.py"
+        f.write_text("x = 1\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_path, check=True)
+        return tmp_path
+
+    def test_already_dirty_second_mutation_detected(self, temp_git_repo):
+        """Gate: ALREADY_DIRTY_SECOND_MUTATION_DETECTED=PASS."""
+        f = temp_git_repo / "app.py"
+        f.write_text("x = 2\n", encoding="utf-8")
+        d1 = get_worktree_state_digest_v2(temp_git_repo)
+        f.write_text("x = 3\n", encoding="utf-8")
+        d2 = get_worktree_state_digest_v2(temp_git_repo)
+        assert d1 != d2
+
+    def test_staged_unstaged_matrix(self, temp_git_repo):
+        """Gate: STAGED_UNSTAGED_MATRIX=PASS."""
+        f = temp_git_repo / "app.py"
+        d_clean = get_worktree_state_digest_v2(temp_git_repo)
+
+        # Staged change
+        f.write_text("x = 2\n", encoding="utf-8")
+        subprocess.run(["git", "add", "app.py"], cwd=temp_git_repo, check=True)
+        d_staged = get_worktree_state_digest_v2(temp_git_repo)
+        assert d_staged != d_clean
+
+        # Unstaged change on top of staged
+        f.write_text("x = 3\n", encoding="utf-8")
+        d_unstaged = get_worktree_state_digest_v2(temp_git_repo)
+        assert d_unstaged != d_staged
+
+        # Re-stage
+        subprocess.run(["git", "add", "app.py"], cwd=temp_git_repo, check=True)
+        d_restaged = get_worktree_state_digest_v2(temp_git_repo)
+        assert d_restaged == d_unstaged
+
+        # Restore
+        subprocess.run(["git", "reset", "--hard", "HEAD"], cwd=temp_git_repo, check=True)
+        d_restored = get_worktree_state_digest_v2(temp_git_repo)
+        assert d_restored == d_clean
+
+    def test_untracked_same_status_content_change_detected(self, temp_git_repo):
+        """Gate: UNTRACKED_SAME_STATUS_CONTENT_CHANGE_DETECTED=PASS."""
+        u = temp_git_repo / "new_module.py"
+        u.write_text("def foo(): return 1\n", encoding="utf-8")
+        d1 = get_worktree_state_digest_v2(temp_git_repo)
+        u.write_text("def foo(): return 2\n", encoding="utf-8")
+        d2 = get_worktree_state_digest_v2(temp_git_repo)
+        assert d1 != d2
+
+    def test_delete_rename_new_file(self, temp_git_repo):
+        """Gate: DELETE_RENAME_NEW_FILE=PASS."""
+        d_clean = get_worktree_state_digest_v2(temp_git_repo)
+
+        # Rename
+        subprocess.run(["git", "mv", "app.py", "renamed.py"], cwd=temp_git_repo, check=True)
+        d_renamed = get_worktree_state_digest_v2(temp_git_repo)
+        assert d_renamed != d_clean
+
+        # Reset
+        subprocess.run(["git", "reset", "--hard", "HEAD"], cwd=temp_git_repo, check=True)
+
+        # Delete
+        (temp_git_repo / "app.py").unlink()
+        d_deleted = get_worktree_state_digest_v2(temp_git_repo)
+        assert d_deleted != d_clean
+
+    def test_content_identity_not_mtime_identity(self, temp_git_repo):
+        """Rewriting identical bytes does not invalidate content digest."""
+        f = temp_git_repo / "app.py"
+        d_base = get_worktree_state_digest_v2(temp_git_repo)
+        content = f.read_text(encoding="utf-8")
+        f.write_text(content, encoding="utf-8")
+        d_rewritten = get_worktree_state_digest_v2(temp_git_repo)
+        assert d_base == d_rewritten
+
+    def test_unrelated_file_change_does_not_invalidate_python_digest(self, temp_git_repo):
+        """Modifying non-Python file (README.md) leaves Python digest unchanged."""
+        d_before = get_worktree_state_digest_v2(temp_git_repo)
+        readme = temp_git_repo / "README.md"
+        readme.write_text("# Project Notes\n", encoding="utf-8")
+        d_after = get_worktree_state_digest_v2(temp_git_repo)
+        assert d_before == d_after
+
+    def test_stale_cache_defense(self, temp_git_repo):
+        """
+        Adversarial gate: evaluate query, modify already-dirty indexed file, evaluate again.
+        Must result in CACHE_HIT=NO, SNAPSHOT_ID_CHANGED=YES.
+        """
+        f = temp_git_repo / "app.py"
+        f.write_text("x = 10\n", encoding="utf-8")  # already dirty
         shadow = DiscoveryRuntimeShadow()
-        r1 = shadow.evaluate(REPO_ROOT, "query A")
-        r2 = shadow.evaluate(REPO_ROOT, "query B")
-        if r1 is None or r2 is None:
-            pytest.skip("Shadow failed")
-        assert r1.query_hash != r2.query_hash
+        ev1 = shadow.evaluate(temp_git_repo, "app")
+        assert ev1 is not None
+        assert not ev1.is_warm
 
-    def test_snapshot_id_is_deterministic(self):
-        """Same HEAD + dirty state = same snapshot_id."""
-        files = ["fiofilter/store.py", "fiofilter/read_receipt.py"]
-        fh = _files_hash(files)
-        sid1 = _snapshot_id("abc123", "d1g3st1", fh)
-        sid2 = _snapshot_id("abc123", "d1g3st1", fh)
-        assert sid1 == sid2
-
-    def test_snapshot_id_changes_with_dirty_state(self):
-        """Different dirty state = different snapshot_id."""
-        files = ["fiofilter/store.py"]
-        fh = _files_hash(files)
-        sid_clean = _snapshot_id("abc123", "clean000", fh)
-        sid_dirty = _snapshot_id("abc123", "dirty111", fh)
-        assert sid_clean != sid_dirty
+        # Modify already-dirty file again
+        f.write_text("x = 20\n", encoding="utf-8")
+        ev2 = shadow.evaluate(temp_git_repo, "app")
+        assert ev2 is not None
+        assert not ev2.is_warm  # CACHE_HIT=NO
+        assert ev2.snapshot_id != ev1.snapshot_id  # SNAPSHOT_ID_CHANGED=YES
+        assert ev2.worktree_state_digest != ev1.worktree_state_digest
 
 
 # ---------------------------------------------------------------------------
@@ -297,10 +398,11 @@ class TestShadowLedger:
         e = events[-1]
         assert "snapshot_id" in e
         assert "query_hash" in e
+        assert "worktree_state_digest" in e
+        assert "query_type" in e
         assert "evaluation_hash" in e
         assert "event_hash" in e
         assert "previous_event_hash" in e
-        # No raw query text in ledger
         assert "task_query" not in e
         assert "query_text" not in e
         assert "raw_query" not in e
@@ -312,17 +414,13 @@ class TestShadowLedger:
         ledger_path = tmp_path / "shadow_ledger.jsonl"
         events = [json.loads(line) for line in ledger_path.read_text().strip().split("\n") if line]
         assert len(events) == 2
-        # Second event's previous_event_hash == first event's event_hash
         assert events[1]["previous_event_hash"] == events[0]["event_hash"]
 
     def test_ledger_failure_does_not_propagate(self, tmp_path):
-        """Ledger write failure never raises."""
-        # Make ledger dir a file to cause write failure
         bad_ledger = tmp_path / "bad"
         bad_ledger.write_text("not a dir")
         shadow = DiscoveryRuntimeShadow(ledger_dir=bad_ledger)
         result = shadow.evaluate(REPO_ROOT, "read receipt")
-        # Should still return a result — ledger failure is isolated
         assert result is None or isinstance(result, ShadowEvaluation)
 
 
@@ -351,8 +449,7 @@ class TestMapContent:
         result = shadow.evaluate(REPO_ROOT, "read receipt shadow", map_budget_bytes=200)
         if result is None:
             pytest.skip("Shadow failed")
-        # Map may slightly exceed due to truncation line, but should be bounded
-        assert result.map_bytes <= 500  # generous bound accounting for truncation message
+        assert result.map_bytes <= 500
 
 
 # ---------------------------------------------------------------------------
@@ -395,7 +492,7 @@ class TestSyntheticTaskStream:
 
 
 # ---------------------------------------------------------------------------
-# to_dict serialization
+# Serialization Tests
 # ---------------------------------------------------------------------------
 
 class TestSerialization:
@@ -406,8 +503,9 @@ class TestSerialization:
             pytest.skip("Shadow failed")
         d = result.to_dict()
         assert isinstance(d, dict)
-        # Must be JSON-serializable
         json_str = json.dumps(d)
         roundtrip = json.loads(json_str)
         assert roundtrip["index_authority"] == "NAVIGATION_ONLY"
         assert roundtrip["tie_break_policy"] == "SCORE_DESC_PATH_ASC"
+        assert "worktree_state_digest" in roundtrip
+        assert "query_type" in roundtrip

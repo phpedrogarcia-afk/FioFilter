@@ -1,6 +1,7 @@
 ﻿"""
 fiofilter/discovery_runtime_shadow.py
-M11: Lexical-first discovery runtime shadow harness.
+M11-R1: Lexical-first discovery runtime shadow harness with content-sensitive
+worktree fingerprinting (V2).
 
 DiscoveryRuntimeShadow provides a shadow navigation mechanism using BM25_LEXICAL.
 It does NOT inject context, suppress reads, block grep, replace source evidence,
@@ -11,6 +12,8 @@ Authority invariants:
   DISCOVERY_READ_SUPPRESSION=NO
   AUTO_CONTEXT_SELECTION=NO
   SHADOW_FAILURE_AGENT_PATH_UNCHANGED=PASS
+  WORKTREE_STATUS_IS_NOT_CONTENT_IDENTITY
+  CACHE_HIT_MUST_BE_PROVEN
 """
 
 from __future__ import annotations
@@ -22,7 +25,7 @@ import pathlib
 import subprocess
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from fiofilter.discovery_lexical import (
     BM25Index,
@@ -31,11 +34,14 @@ from fiofilter.discovery_lexical import (
     build_bm25_index_from_paths,
     tokenize_v2,
 )
-from fiofilter.structural_python import PythonAstStructuralBackend
+from fiofilter.structural_python import (
+    DEFAULT_EXCLUDE_PARTS,
+    PythonAstStructuralBackend,
+)
 
 
 # ---------------------------------------------------------------------------
-# Version constants (frozen for M11-V1)
+# Version constants (frozen for M11-V1 / M11-R1)
 # ---------------------------------------------------------------------------
 
 M11_TOKENIZER_VERSION = "V2"
@@ -45,10 +51,11 @@ M11_B = _BM25_B     # 0.75
 M11_INDEXED_FIELDS = ("PATH", "SYMBOL_NAMES")
 M11_TIE_BREAK_POLICY = "SCORE_DESC_PATH_ASC"
 M11_INDEX_AUTHORITY = "NAVIGATION_ONLY"
+INDEXED_FILE_UNIVERSE_POLICY = "PYTHON_SOURCES_V1"
 
 
 # ---------------------------------------------------------------------------
-# Provenance
+# Provenance and Content-Sensitive Fingerprinting (V2)
 # ---------------------------------------------------------------------------
 
 def _get_head_sha(repo_root: pathlib.Path) -> str:
@@ -60,7 +67,10 @@ def _get_head_sha(repo_root: pathlib.Path) -> str:
 
 
 def _get_dirty_digest(repo_root: pathlib.Path) -> str:
-    """Hash of the git status output — changes when working tree is dirty."""
+    """
+    Hash of the git status output. Retained as status metadata only.
+    INVARIANT: WORKTREE_STATUS_IS_NOT_CONTENT_IDENTITY.
+    """
     r = subprocess.run(
         ["git", "status", "--porcelain"],
         capture_output=True, text=True, cwd=repo_root,
@@ -69,12 +79,82 @@ def _get_dirty_digest(repo_root: pathlib.Path) -> str:
     return hashlib.sha256(status.encode()).hexdigest()[:16]
 
 
+def get_worktree_state_digest_v2(
+    repo_root: pathlib.Path,
+    exclude_parts: Optional[Set[str]] = None,
+) -> str:
+    """
+    Content-sensitive worktree fingerprint (WORKTREE_STATE_DIGEST_V2).
+
+    Binds directly to:
+    1. HEAD commit SHA
+    2. Tracked worktree delta content (git diff --binary HEAD for *.py)
+    3. Untracked relevant *.py files sorted by path with exact byte hashes
+
+    Properties:
+    - Same content -> same digest
+    - Tracked change (staged, unstaged, or double-mutated) -> digest changes
+    - Untracked change (same '??' status but different content) -> digest changes
+    - File addition, deletion, rename -> digest changes
+    - Touch / mtime rewrite of identical content -> digest remains identical
+    - Irrelevant file change (e.g. README.md, .txt) -> digest remains identical
+    """
+    root = repo_root.resolve()
+    excludes = exclude_parts if exclude_parts is not None else DEFAULT_EXCLUDE_PARTS
+
+    # 1. HEAD sha
+    head_sha = _get_head_sha(root)
+
+    # 2. Tracked diff against HEAD for *.py files
+    r_diff = subprocess.run(
+        ["git", "diff", "--binary", "HEAD", "--", "*.py"],
+        cwd=root,
+        capture_output=True,
+    )
+    diff_bytes = r_diff.stdout if r_diff.returncode == 0 else b""
+
+    # 3. Untracked relevant *.py files
+    r_untracked = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard", "--", "*.py"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    untracked_lines: List[str] = []
+    if r_untracked.returncode == 0:
+        raw_paths = [
+            p.strip().replace("\\", "/")
+            for p in r_untracked.stdout.strip().split("\n")
+            if p.strip()
+        ]
+        for rel in sorted(raw_paths):
+            parts = set(rel.split("/"))
+            if parts.intersection(excludes):
+                continue
+            full = root / rel
+            if full.exists() and full.is_file():
+                try:
+                    file_hash = hashlib.sha256(full.read_bytes()).hexdigest()
+                    untracked_lines.append(f"{rel}:{file_hash}")
+                except Exception:
+                    pass
+
+    hasher = hashlib.sha256()
+    hasher.update(b"WORKTREE_STATE_V2:")
+    hasher.update(head_sha.encode("utf-8"))
+    hasher.update(b"\nDIFF:")
+    hasher.update(diff_bytes)
+    hasher.update(b"\nUNTRACKED:")
+    hasher.update("\n".join(untracked_lines).encode("utf-8"))
+    return hasher.hexdigest()[:16]
+
+
 def _query_hash(query: str) -> str:
     return hashlib.sha256(query.encode("utf-8")).hexdigest()[:16]
 
 
-def _snapshot_id(head_sha: str, dirty_digest: str, indexed_files_hash: str) -> str:
-    combined = f"{head_sha}:{dirty_digest}:{indexed_files_hash}"
+def _snapshot_id(head_sha: str, worktree_state_digest: str, indexed_files_hash: str) -> str:
+    combined = f"{head_sha}:{worktree_state_digest}:{indexed_files_hash}"
     return hashlib.sha256(combined.encode()).hexdigest()[:16]
 
 
@@ -106,9 +186,11 @@ class ShadowEvaluation:
     # Provenance
     repo_root: str
     head_sha: str
-    dirty_digest: str
+    dirty_digest: str             # git status metadata (not content identity)
+    worktree_state_digest: str    # V2 content-sensitive digest
     snapshot_id: str
     query_hash: str
+    file_universe_policy: str
 
     # Ranker version binding (auditable)
     tokenizer_version: str
@@ -125,13 +207,15 @@ class ShadowEvaluation:
     map_content: str  # compact index map (paths + scores, no file contents)
 
     # Cost metrics
+    state_validation_ms: float
     snapshot_build_ms: float
     index_build_ms: float
     query_tokenize_ms: float
     ranking_ms: float
     map_render_ms: float
     total_ms: float
-    is_warm: bool  # True if snapshot was reused from previous call
+    is_warm: bool
+    query_type: str  # "COLD_EVALUATION" or "INDEX_REUSE_QUERY"
 
     # Index health
     files_indexed: int
@@ -154,6 +238,7 @@ class ShadowEvaluation:
 
 @dataclass
 class _CachedSnapshot:
+    cache_key: Tuple[str, str, str, str, str]  # (repo_root, head_sha, worktree_state_digest, bm25_version, universe_policy)
     snapshot_id: str
     file_paths: List[str]
     symbol_names_by_path: Dict[str, List[str]]
@@ -167,7 +252,7 @@ class _CachedSnapshot:
 
 class DiscoveryRuntimeShadow:
     """
-    Lexical-first discovery runtime shadow.
+    Lexical-first discovery runtime shadow with V2 content-sensitive state.
 
     Evaluates repository file navigation candidates using BM25_LEXICAL.
     Returns metadata only. Never modifies agent behavior.
@@ -217,27 +302,42 @@ class DiscoveryRuntimeShadow:
     ) -> ShadowEvaluation:
         t_total_start = time.monotonic()
 
-        # Provenance
+        # Provenance: State Validation
+        t_state_start = time.monotonic()
         head_sha = _get_head_sha(repo_root)
         dirty_digest = _get_dirty_digest(repo_root)
+        worktree_state_digest = get_worktree_state_digest_v2(repo_root)
+        t_state_ms = (time.monotonic() - t_state_start) * 1000
 
-        # --- Snapshot ---
-        t_snap_start = time.monotonic()
-        snapshot = self._backend.build_snapshot_from_worktree(repo_root)
-        all_files = sorted(snapshot.file_graph.nodes)  # sorted for determinism
-        files_hash = _files_hash(all_files)
-        sid = _snapshot_id(head_sha, dirty_digest, files_hash)
-        t_snap_ms = (time.monotonic() - t_snap_start) * 1000
+        # Exact cache key: (repo_path, head_sha, worktree_state_digest, version, policy)
+        cache_key = (
+            str(repo_root.resolve()),
+            head_sha,
+            worktree_state_digest,
+            M11_BM25_VERSION,
+            INDEXED_FILE_UNIVERSE_POLICY,
+        )
 
-        # Warm reuse: reuse cached BM25 index if snapshot_id is identical
+        # Cache hit assertion: CACHE_HIT_MUST_BE_PROVEN
         is_warm = False
-        if self._cache is not None and self._cache.snapshot_id == sid:
+        if self._cache is not None and self._cache.cache_key == cache_key:
             index = self._cache.bm25_index
             sym_by_file = self._cache.symbol_names_by_path
             file_paths = self._cache.file_paths
+            sid = self._cache.snapshot_id
+            t_snap_ms = 0.0
             t_index_ms = 0.0
             is_warm = True
+            query_type = "INDEX_REUSE_QUERY"
         else:
+            # Rebuild snapshot and index from worktree
+            t_snap_start = time.monotonic()
+            snapshot = self._backend.build_snapshot_from_worktree(repo_root)
+            all_files = sorted(snapshot.file_graph.nodes)  # sorted for determinism
+            files_hash = _files_hash(all_files)
+            sid = _snapshot_id(head_sha, worktree_state_digest, files_hash)
+            t_snap_ms = (time.monotonic() - t_snap_start) * 1000
+
             # Build symbol map
             sym_by_file: Dict[str, List[str]] = {}
             for f in all_files:
@@ -245,12 +345,15 @@ class DiscoveryRuntimeShadow:
                     s.qualified_name.split(".")[-1]
                     for s in snapshot.symbol_index.symbols_in_file(f)
                 ]
+
             # Build BM25 index
             t_idx_start = time.monotonic()
             index = build_bm25_index_from_paths(all_files, sym_by_file)
             t_index_ms = (time.monotonic() - t_idx_start) * 1000
-            # Cache
+
+            # Cache with V2 content key
             self._cache = _CachedSnapshot(
+                cache_key=cache_key,
                 snapshot_id=sid,
                 file_paths=all_files,
                 symbol_names_by_path=sym_by_file,
@@ -258,6 +361,7 @@ class DiscoveryRuntimeShadow:
                 build_ms=t_index_ms,
             )
             file_paths = all_files
+            query_type = "COLD_EVALUATION"
 
         # --- Query tokenization ---
         t_tok_start = time.monotonic()
@@ -276,13 +380,21 @@ class DiscoveryRuntimeShadow:
             # Identify matched tokens for explanation
             doc = next((d for d in index.documents if d.path == path), None)
             matched = [t for t in query_toks if doc and doc.token_counts.get(t, 0) > 0]
-            candidates.append(CandidateResult(rank=i + 1, path=path, score=round(score, 6), matched_tokens=matched))
+            candidates.append(
+                CandidateResult(
+                    rank=i + 1,
+                    path=path,
+                    score=round(score, 6),
+                    matched_tokens=matched,
+                )
+            )
 
         # --- Map rendering ---
         t_map_start = time.monotonic()
         map_lines = [f"# Discovery shadow — {head_sha[:8]} | query:{qhash}"]
         map_lines.append(f"# tokenizer:{M11_TOKENIZER_VERSION} bm25:{M11_BM25_VERSION} k1={M11_K1} b={M11_B}")
         map_lines.append(f"# tie_break:{M11_TIE_BREAK_POLICY} authority:{M11_INDEX_AUTHORITY}")
+        map_lines.append(f"# digest_v2:{worktree_state_digest} query_type:{query_type}")
         map_lines.append("")
         for c in candidates:
             line = f"[{c.rank:02d}] {c.path} (score={c.score:.4f} tokens={c.matched_tokens})"
@@ -304,8 +416,10 @@ class DiscoveryRuntimeShadow:
             repo_root=str(repo_root),
             head_sha=head_sha,
             dirty_digest=dirty_digest,
+            worktree_state_digest=worktree_state_digest,
             snapshot_id=sid,
             query_hash=qhash,
+            file_universe_policy=INDEXED_FILE_UNIVERSE_POLICY,
             tokenizer_version=M11_TOKENIZER_VERSION,
             bm25_version=M11_BM25_VERSION,
             k1=M11_K1,
@@ -316,6 +430,7 @@ class DiscoveryRuntimeShadow:
             candidates=candidates,
             map_bytes=map_bytes_actual,
             map_content=map_content,
+            state_validation_ms=round(t_state_ms, 2),
             snapshot_build_ms=round(t_snap_ms, 2),
             index_build_ms=round(t_index_ms, 2),
             query_tokenize_ms=round(t_tok_ms, 4),
@@ -323,6 +438,7 @@ class DiscoveryRuntimeShadow:
             map_render_ms=round(t_map_ms, 4),
             total_ms=round(total_ms, 2),
             is_warm=is_warm,
+            query_type=query_type,
             files_indexed=len(file_paths),
             candidate_count=len(candidates),
             estimated_map_tokens=map_bytes_actual // 4,
@@ -354,14 +470,17 @@ class DiscoveryRuntimeShadow:
                 "event_id": f"m11-{int(time.time())}-{result.evaluation_hash}",
                 "snapshot_id": result.snapshot_id,
                 "query_hash": result.query_hash,
+                "worktree_state_digest": result.worktree_state_digest,
                 "ranker_version": result.bm25_version,
                 "tokenizer_version": result.tokenizer_version,
                 "k1": result.k1,
                 "b": result.b,
                 "tie_break_policy": result.tie_break_policy,
+                "query_type": result.query_type,
                 "candidate_paths": [c.path for c in result.candidates],
                 "scores": [c.score for c in result.candidates],
                 "map_size_bytes": result.map_bytes,
+                "state_validation_ms": result.state_validation_ms,
                 "snapshot_build_ms": result.snapshot_build_ms,
                 "index_build_ms": result.index_build_ms,
                 "ranking_ms": result.ranking_ms,
@@ -449,6 +568,7 @@ def run_synthetic_task_stream(
             "status": "OK",
             "query_hash": ev.query_hash,
             "snapshot_id": ev.snapshot_id,
+            "worktree_state_digest": ev.worktree_state_digest,
             "evaluation_hash": ev.evaluation_hash,
             "known_positives": task["known_positives"],
             "R@1": recall_at(1),
@@ -457,7 +577,9 @@ def run_synthetic_task_stream(
             "R@10": recall_at(10),
             "top5_paths": ranked_paths[:5],
             "total_ms": ev.total_ms,
+            "state_validation_ms": ev.state_validation_ms,
             "is_warm": ev.is_warm,
+            "query_type": ev.query_type,
             "map_bytes": ev.map_bytes,
             "estimated_map_tokens": ev.estimated_map_tokens,
         })

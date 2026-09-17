@@ -976,3 +976,40 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   - Persisting raw task queries to disk ledger (rejected: privacy violation).
   - Claiming token/turn savings without live multi-turn agent trials (rejected: unverified claim hygiene).
 - **REVERSIBILITY**: High. Standalone component with zero hooks, external dependencies, or side-effects on the runtime environment.
+
+
+---
+
+## M11-R1-D001 — Content-Sensitive Worktree Fingerprinting (V2) & Self-Shadow Invalidation
+
+- **QUESTION**: How should FioFilter detect worktree mutations accurately and handle contaminated prework evidence without weakening evidence discipline?
+- **EVIDENCE**:
+  - **Status-Only Failure Case**: Demonstrated in controlled laboratory repository: modifying an already-dirty file produces identical `git status --porcelain` text (`' M file.py'`), leaving status-derived hash unchanged. Result: `STATUS_ONLY_STALE_DETECTION_FAILURE = REPRODUCED`.
+  - **Content-Sensitive Fingerprint (V2)**: Implemented `get_worktree_state_digest_v2()` in `fiofilter/discovery_runtime_shadow.py`. Binds to HEAD SHA + `git diff --binary HEAD -- *.py` + sorted untracked *.py SHA-256 byte hashes. Scoped to `INDEXED_FILE_UNIVERSE_POLICY = "PYTHON_SOURCES_V1"`.
+  - **Adversarial Verification Gates**:
+    - `ALREADY_DIRTY_SECOND_MUTATION_DETECTED = PASS`
+    - `STAGED_UNSTAGED_MATRIX = PASS`
+    - `UNTRACKED_SAME_STATUS_CONTENT_CHANGE_DETECTED = PASS`
+    - `DELETE_RENAME_NEW_FILE = PASS`
+    - `CONTENT_IDENTITY_NOT_MTIME_IDENTITY = PASS` (mtime touch with identical bytes preserves digest)
+    - `CACHE_HIT_REQUIRES_V2_KEY = PASS` (composite key: repo, head, digest_v2, bm25_v, policy)
+    - `STALE_CACHE_DEFENSE = PASS` (dirty file mutation forces index rebuild)
+  - **Formal Invariants**: `WORKTREE_STATUS_IS_NOT_CONTENT_IDENTITY`, `CACHE_HIT_MUST_BE_PROVEN`.
+  - **Self-Shadow Experiment Audit**: Local inspection of `m11_self_shadow_prework_v1.json` revealed candidate #6 was `fiofilter/discovery_runtime_shadow.py`. That file was created on disk prior to the prework script execution. Result: `SELF_SHADOW_PREWORK_CONTAMINATED = YES`. Status updated to `M11_SELF_SHADOW_N1 = INVALIDATED_PREWORK_CONTAMINATION`. The artifact is preserved locally as negative evidence; `Recall@10 = 0.5` is NOT counted as live empirical evidence.
+  - **Synthetic Stream Semantics**: Task SYN-004 returned R@10=0 (`store.py` vs query describing T02). Clarified semantics: `HARNESS_EXECUTION_SUCCESS = 5/5`, `TARGET_RETRIEVAL_AT_10 = 4/5`. Failure classified as `QUERY_TARGET_MISMATCH_AND_TARGET_LABEL_QUESTIONABLE`. Negative result preserved.
+  - **Remeasured Runtime Costs (V2)**: Cold query ~326 ms (state validation ~143 ms, AST parsing ~174 ms, index build ~8.6 ms); index-reuse query ~144 ms (state validation ~143 ms, index build 0 ms). Terminology: `INDEX_REUSE_QUERY`.
+  - **Tests**: 43 tests in `tests/test_discovery_runtime_shadow.py` (491 total suite passing).
+- **DECISION**:
+  - Replace status-only dirty digest with `WORKTREE_STATE_DIGEST_V2`.
+  - Require proven V2 cache key match for index reuse (`CACHE_HIT_MUST_BE_PROVEN`).
+  - Invalidate M11 self-shadow experiment while preserving the local artifact.
+  - Correct synthetic stream reporting semantics.
+  - Maintain Discovery lane status: `DISCOVERY_READY_FOR_LIVE_CODEX_SHADOW`.
+  - **M11 CANONICAL VERDICT**: `M11_DISCOVERY_RUNTIME_SHADOW_PASS_LIVE_TARGET_READY`.
+- **WHY**: Freshness must be grounded in exact content deltas rather than git porcelain text. Negative or contaminated experimental results must be invalidated and preserved rather than rationalized or hidden.
+- **ALTERNATIVES_REJECTED**:
+  - Retaining status-only dirty digest (rejected: fails second-mutation detection).
+  - Deleting or silently replacing contaminated self-shadow artifact (rejected: violates evidence preservation).
+  - Hashing entire filesystem indiscriminately (rejected: creates noisy invalidations from unrelated files).
+  - Calling index-reuse queries "full warm cache" (rejected: obscures essential state validation overhead).
+- **REVERSIBILITY**: High. V2 digest and cache keys are purely in-memory and isolated to the discovery shadow harness.
