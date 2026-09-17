@@ -899,3 +899,42 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   - Tuning BM25 k1/b weights before holdout evaluation (rejected: must freeze V1 weights before any evaluation to avoid overfitting).
   - Declaring BM25 universally superior to legacy (rejected: improvement is PROVEN only on 7-commit non-leaking corpus; MRR equal).
 - **REVERSIBILITY**: High. `discovery_lexical.py` is completely additive — it does not modify any existing engine, transform, or profile. Legacy ranker preserved for regression comparison.
+
+
+---
+
+## M10-R1-D001 — Benchmark Reconciliation, Determinism Hardening, Field Diagnostic
+
+- **QUESTION**: Does the M10 benchmark population, leakage classification, and ranking implementation satisfy integrity requirements for an evidence-grade benchmark?
+- **EVIDENCE**:
+  - **M09 Merge-Policy Incident**: PR #8 merged with `gh pr merge 8 --squash` instead of exact fast-forward. Squash commit tree SHA matches branch head tree SHA (content preserved). Author identity violation: `ph.pedrogarcia@gmail.com` (not NOREPLY). `DO_NOT_USE_GH_PR_MERGE_FOR_EXACT_FAST_FORWARD_MISSIONS=YES`.
+  - **Benchmark Census Repair** (exact `git ls-tree` path matching, not basename): 19 commits total (18 main + 1 branch head). Buckets: ROOT_NO_PARENT=1, NO_PYTHON_CHANGE=3, NEW_FILE_ONLY=6, EXISTING_FILE_ONLY=5, MIXED_EXISTING_AND_NEW=4. Benchmarkable: 9. Leakage reclassified: NON_LEAKING=5, PATH_LEAKING=4 (was 7/2 in M10 original — corrected by exact tokenize_v2 stem matching).
+  - **Ranking Determinism Fix**: `BM25Index.rank()` and `legacy_rank()` now sort by `(-score, path)` — stable tie-breaker, deterministic regardless of PYTHONHASHSEED or insertion order.
+  - **Hash-Seed Reproducibility**: `HASH_SEED_RANKING_DETERMINISM=PASS` (seeds 1, 42, 999 produce identical rankings).
+  - **Input-Order Independence**: `INPUT_ORDER_INDEPENDENCE=PASS` (original, reversed, shuffled corpus orders produce identical rankings).
+  - **Corrected Metrics** (NON_LEAKING, n=5): LEGACY_LEXICAL R@10=36.7% MRR=0.6000; BM25_LEXICAL R@10=36.7% MRR=0.4500. Original M10 BM25_LEXICAL R@10 win (+5.6pp) was a benchmark artifact of incorrect leakage classification. `BM25_LEXICAL_BEATS_LEGACY_LEXICAL_R10=NOT_PROVEN` on corrected corpus.
+  - **Small-Sample Limitations**: N=5 non-leaking → `NO_WEIGHT_TUNING`, `TEMPORAL_HOLDOUT=INSUFFICIENT_SAMPLE`, `GENERAL_SUPERIORITY=NOT_PROVEN`.
+  - **Zero-Overlap Field Diagnostic** (miss commit 5091ac08, GT=`fiofilter/context_census.py`):
+    - PATH_ONLY overlap: 0 tokens
+    - PATH_PLUS_SYMBOL overlap: 0 tokens (symbols: CensusEvent, ContextWasteCensus, analyze, load_session, etc.)
+    - FULL_SOURCE_TEXT overlap: 3 tokens (exact, m05, redelivery)
+    - Result: `CURRENT_PATH_SYMBOL_BM25_HAS_ZERO_DIRECT_OVERLAP` + `INDEX_FIELD_COVERAGE_GAP`
+    - The original M10 claim "no algorithm can bridge this gap" is **CORRECTED**: the gap is a field coverage limitation, not a fundamental impossibility. Full source text indexing is `DIAGNOSTICALLY_PROMISING`.
+  - **Structural Bridge Diagnostic**: At parent snapshot 725597f8, BM25 returns zero positive-score results for the miss query — `NO_LEXICAL_SEED_EXISTS`. Importers of context_census.py (run_context_waste_census.py, test_context_census.py) are not reachable via BM25 expansion because there are no seeds. `STRUCTURAL_RELATION_STATUS=NOT_AUTHORIZED_YET`.
+- **DECISION**:
+  - Record M09 merge-policy incident as audited. Do NOT rewrite history.
+  - Correct benchmark census and leakage classification. Preserve original M10 artifacts.
+  - Adopt `(-score, path)` sorting as permanent determinism contract for BM25 and legacy rankers.
+  - Record `HASH_SEED_RANKING_DETERMINISM=PASS`, `INPUT_ORDER_INDEPENDENCE=PASS`.
+  - Demote M10 original BM25 R@10 win claim: `BM25_LEXICAL_BEATS_LEGACY_LEXICAL_R10=NOT_PROVEN` on corrected corpus.
+  - Record `INDEX_FIELD_COVERAGE_GAP` (full text has overlap; path+symbol does not).
+  - Record `STRUCTURAL_BRIDGE_RESULT=NO_LEXICAL_SEED_EXISTS`.
+  - Set `STRUCTURAL_RELATION_STATUS=NOT_AUTHORIZED_YET` (diagnostically noted, not authorized).
+  - Canonical verdict: `M10_CANONICAL_VERDICT=M10_DISCOVERY_REFINEMENT_PASS_LEXICAL_FIRST`.
+- **WHY**: Evidence-grade benchmarks require exact path matching, correct leakage classification, deterministic ranking, and scoped claims. The field coverage gap is an actionable finding (field expansion is a legitimate future direction) rather than a dead end.
+- **ALTERNATIVES_REJECTED**:
+  - Keeping PATH_LEAKING classification based on naive prefix matching (rejected: exact tokenize_v2 stem matching is more rigorous).
+  - Claiming BM25 wins on non-leaking corpus without leakage correction (rejected: overclaim).
+  - Claiming "no algorithm can bridge the vocabulary gap" universally (rejected: field coverage gap makes full-text indexing potentially viable).
+  - Adding structural relations or full-text indexing in M10-R1 (rejected: diagnostic only, not authorized).
+- **REVERSIBILITY**: High. Determinism fix is a pure sort key change. Benchmark corrected, original artifacts preserved. Full-text indexing or structural relations require separate authorization.

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import math
 import re
@@ -209,7 +209,7 @@ class BM25Index:
             s = self.score(doc, query_tokens)
             if s > 0.0:
                 results.append((doc.path, s))
-        results.sort(key=lambda x: x[1], reverse=True)
+        results.sort(key=lambda x: (-x[1], x[0]))
         if top_k is not None:
             results = results[:top_k]
         return results
@@ -249,7 +249,7 @@ def legacy_rank(query, file_paths, symbol_names_by_path=None, top_k=None):
                 score=float(len(matched)),
                 matched_tokens=matched,
             ))
-    results.sort(key=lambda x: x.score, reverse=True)
+    results.sort(key=lambda x: (-x.score, x.path))
     if top_k is not None:
         results = results[:top_k]
     return results
