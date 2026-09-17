@@ -938,3 +938,41 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   - Claiming "no algorithm can bridge the vocabulary gap" universally (rejected: field coverage gap makes full-text indexing potentially viable).
   - Adding structural relations or full-text indexing in M10-R1 (rejected: diagnostic only, not authorized).
 - **REVERSIBILITY**: High. Determinism fix is a pure sort key change. Benchmark corrected, original artifacts preserved. Full-text indexing or structural relations require separate authorization.
+
+
+---
+
+## M11-D001 — Lexical-First Discovery Runtime Shadow Harness
+
+- **QUESTION**: Can FioFilter establish an explicit runtime shadow harness for lexical discovery navigation without changing agent behavior, violating evidence invariants, or installing intrusive hooks?
+- **EVIDENCE**:
+  - **M10-R1 Finalization**: Exact fast-forward promotion to main (`362e6e6eba526ca1d7ebe1e28553678a92573e6e`, tree `08566b3b3e4c9def41c31271cb3a5a94c597ec0a`). No squash, full commit provenance preserved.
+  - **Harness Implementation**: `DiscoveryRuntimeShadow` in `fiofilter/discovery_runtime_shadow.py`.
+    - Returns metadata only: snapshot ID, query hash, ranked candidate paths, explanations, map bytes, timings.
+    - Explicit invocation only — no background daemons, MCP servers, proxies, shell traps, or agent hooks.
+    - Invariants enforced: `INDEX_AUTHORITY = NAVIGATION_ONLY`, `DISCOVERY_READ_SUPPRESSION = NO`, `AUTO_CONTEXT_SELECTION = NO`, `SHADOW_FAILURE_AGENT_PATH_UNCHANGED = PASS`.
+  - **Provenance & Determinism**:
+    - Every evaluation bound to: `head_sha`, `dirty_digest`, `snapshot_id`, `query_hash`, `tokenizer_version`, `bm25_version` (`k1=1.2, b=0.75`), `indexed_fields`, `tie_break_policy` (`SCORE_DESC_PATH_ASC`).
+    - Stale snapshot defense: `dirty_digest` from `git status --porcelain` invalidates cache upon worktree change.
+    - `RUNTIME_SHADOW_DETERMINISM = PASS`.
+  - **Self-Shadow Experiment (Live Anecdotal Evidence)**:
+    - Prework prediction before M11 edits using M11's own mission query.
+    - Primary modified file `fiofilter/discovery_runtime_shadow.py` retrieved at rank 6 (`SELF_SHADOW_CHANGED_FILE_RECALL_AT_10 = 0.5`).
+    - Label: `ANECDOTAL_LIVE_EVIDENCE_N1_TASK`.
+  - **Synthetic Stream**: 5 deterministic tasks; cold query ~251 ms, warm query ~230 ms; map ~909 bytes (~227 estimated tokens).
+  - **Privacy**: Append-only local ledger (`shadow_ledger.jsonl`) stores only query hashes and metadata; raw task queries are never logged.
+  - **Tests**: 37 new tests in `tests/test_discovery_runtime_shadow.py` (485 total suite passing).
+- **DECISION**:
+  - Authorize `DiscoveryRuntimeShadow` as the explicit discovery shadow harness.
+  - Enforce `INDEX_AUTHORITY = NAVIGATION_ONLY` and strict failure isolation (`SHADOW_FAILURE_AGENT_PATH_UNCHANGED = PASS`).
+  - Maintain behavioral claims as unproven: `DISCOVERY_BYTES_AVOIDABLE = UNKNOWN`, `MODEL_TURN_SAVINGS = UNKNOWN`, `BEHAVIORAL_EQUIVALENCE = UNKNOWN`.
+  - Transition discovery shadow lane to: `DISCOVERY_READY_FOR_LIVE_CODEX_SHADOW`.
+  - **M11 VERDICT**: `M11_DISCOVERY_RUNTIME_SHADOW_PASS_LIVE_TARGET_READY`.
+- **WHY**: M11 establishes an auditable, deterministic, zero-risk navigation orientation plane. It enables evaluating potential discovery benefits without altering agent interactions or creating untested context injection hazards.
+- **ALTERNATIVES_REJECTED**:
+  - Automatic prompt injection / context insertion (rejected: violates evidence boundary and agent agency).
+  - Read suppression based on index ranking (rejected: indexing is navigational, not evidentiary).
+  - Global hooks / shell interception / MCP daemon (rejected: violates mission discipline).
+  - Persisting raw task queries to disk ledger (rejected: privacy violation).
+  - Claiming token/turn savings without live multi-turn agent trials (rejected: unverified claim hygiene).
+- **REVERSIBILITY**: High. Standalone component with zero hooks, external dependencies, or side-effects on the runtime environment.
