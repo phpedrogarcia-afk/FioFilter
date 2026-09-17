@@ -1,4 +1,4 @@
-﻿# FioFilter V0 Explicit Integration Spine
+# FioFilter V0 Explicit Integration Spine
 
 ## 1. Executive Summary
 
@@ -42,8 +42,8 @@ FioFilter V0 is an **evidence engine and deterministic filter laboratory**, not 
 - **NO MCP Server or Proxy**: Does not intercept network calls, stdio streams, or LLM traffic.
 - **NO Active Read Suppression**: Discovery ranking and read receipts never block, truncate, or suppress tool outputs.
 - **NO Automatic Context Injection**: Discovery maps are never injected into prompt contexts autonomously.
-- **NO LLMs, Embeddings, or Heuristic Classifiers**: All logic is strictly rule-based, deterministic, and verifiable.
-- **NO Raw Query or Sensitive Persistence**: Local shadow ledgers store only SHA-256 hashes; raw queries and sensitive inputs are never persisted.
+- **NO LLM or Embedding Classifier**: NO LLM or embedding classifier is used in V0. Deterministic detectors may be used for conservative screening, but detector no-match is never an oracle non-sensitive assessment (`DETECTOR_NO_MATCH != NON_SENSITIVE`).
+- **NO Raw Query or Sensitive Content Persistence**: Raw task query text and raw file contents are never persisted by the discovery shadow ledger. When local metadata persistence is explicitly enabled (`PERSISTENT_METADATA_LEDGER_DEFAULT=OFF` by default), the discovery shadow ledger may include repository candidate paths, scores, timing data, and provenance hashes. Traces recorded by the V0 lab controller (`FioFilterV0Lab.traces`) are strictly `IN_MEMORY_DECISION_TRACE` records.
 
 ---
 
@@ -133,50 +133,59 @@ The V0 spine includes a deterministic end-to-end scenario exercising all subsyst
 User Task Query
        │
        ▼
-[Step 1: Discovery Shadow] ────────► Produces top navigation candidates (duration: ~336 ms)
+[Step 1: Discovery Shadow] ────────► Produces top navigation candidates (measured: ~336 ms)
        │
        ▼
-[Step 2: Initial File Read] ───────► Delivers exact RAW bytes (49,200 B, FIRST_READ_RAW)
+[Step 2: Initial File Read] ───────► Delivers exact RAW bytes (FIRST_READ_RAW, single physical buffer)
        │
        ▼
-[Step 3: Repeated File Read] ──────► Delivers exact RAW bytes (49,200 B)
+[Step 3: Repeated File Read] ──────► Delivers exact RAW bytes (same single buffer)
                                       └─► Proves F4 byte identity
-                                      └─► Computes hypothetical reference (49,058 B avoided)
+                                      └─► Computes hypothetical reference (shadow_read_reference_bytes_avoided)
        │
        ▼
 [Step 4: Search Representation] ───► Evaluates T02 candidate under RgStandardEvidence
+                                      └─► Applicable with positive savings (shadow_t02_bytes_avoided)
                                       └─► Emits exact RAW bytes (explicit transform unauthorized)
        │
        ▼
-[Step 5: Metrics & Accounting] ────► Strictly separates actual (0 B) from hypothetical (49,058 B)
+[Step 5: Metrics & Accounting] ────► Strictly separates actual (0 B) from hypothetical savings
 ```
 
-Total scenario execution time: **~350 ms**.
+Total scenario execution time: **~350 ms** (measured example).
+
+> [!NOTE]
+> File byte sizes, candidate counts, and millisecond timings are snapshot measurements from the development corpus. Functional invariants do not depend on exact snapshot numbers.
 
 ---
 
 ## 8. Actual vs Hypothetical Economics
 
-FioFilter V0 enforces a strict accounting division in its decision trace and summary reporting:
+FioFilter V0 enforces a strict capability-separated accounting division in its decision trace and summary reporting:
 
-- **`ACTUAL_VISIBLE_BYTES_REDUCED`**: Measures bytes actually saved in delivered output when an explicit transform is authorized and applied.
-- **`SHADOW_HYPOTHETICAL_BYTES_AVOIDED`**: Measures bytes that *would* have been avoided if an authorized reference replacement had occurred.
+- **`ACTUAL_VISIBLE_BYTES_REDUCED` / `ACTUAL_T02_BYTES_REDUCED`**: Measures bytes actually saved in delivered output when an explicit transform is authorized and applied.
+- **`SHADOW_READ_REFERENCE_BYTES_AVOIDED`**: Measures bytes that *would* have been avoided if an authorized read reference replacement had occurred.
+- **`SHADOW_T02_BYTES_AVOIDED`**: Measures bytes that *would* have been avoided if an applicable T02 representation had been explicitly authorized.
+- **`SHADOW_HYPOTHETICAL_BYTES_AVOIDED`**: Aggregate hypothetical opportunity across non-interfering shadow evaluations.
 
 ```
-FORMAL ACCOUNTING INVARIANT:
-ACTUAL_VISIBLE_BYTES_REDUCED and SHADOW_HYPOTHETICAL_BYTES_AVOIDED
-must NEVER be summed together.
+FORMAL ACCOUNTING INVARIANTS:
+1. ACTUAL and HYPOTHETICAL savings must NEVER be summed together.
+2. Cross-capability double-counting is never assumed: read references and representation transforms are tracked under distinct fields.
 ```
 
-In the standard V0 shadow run:
+In the standard V0 shadow run (measured snapshot example):
 - `ACTUAL_VISIBLE_BYTES_REDUCED = 0`
-- `SHADOW_HYPOTHETICAL_BYTES_AVOIDED = 49,058`
+- `ACTUAL_T02_BYTES_REDUCED = 0`
+- `SHADOW_READ_REFERENCE_BYTES_AVOIDED = 49,058`
+- `SHADOW_T02_BYTES_AVOIDED = 1,611`
+- `SHADOW_HYPOTHETICAL_BYTES_AVOIDED = 50,669`
 
 ---
 
 ## 9. Performance Economics
 
-Measured on the 64-file repository snapshot:
+Measured examples on the repository snapshot:
 
 | Operation | Latency | Note |
 | :--- | :---: | :--- |

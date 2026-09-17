@@ -216,6 +216,13 @@ class ReadReceiptDecision:
     hypothetical_model_visible_reference_bytes: int = 0
 
 
+@dataclass
+class LiveReadResult:
+    """Ephemeral result of a live read evaluation returning both raw bytes and the shadow decision."""
+    raw_bytes: bytes
+    decision: ReadReceiptDecision
+
+
 def format_read_reference(
     receipt_id: str,
     sha256_hex: str,
@@ -470,7 +477,7 @@ class ReadReceiptEvaluator:
         self._receipt_counter += 1
         return f"rcpt-{self._receipt_counter:04d}"
 
-    def evaluate_live_read(
+    def evaluate_live_read_result(
         self,
         call_id: str,
         file_path: pathlib.Path,
@@ -480,10 +487,11 @@ class ReadReceiptEvaluator:
         timestamp: Optional[str] = None,
         git_head: Optional[str] = None,
         worktree_state: Optional[str] = None,
-    ) -> ReadReceiptDecision:
+    ) -> LiveReadResult:
         """Evaluate a live file read on disk against active session receipts.
 
         Guarantees:
+        - Single body read: the exact bytes used for freshness proof are returned to caller
         - Checks Plane A freshness (hash + byte equality)
         - Defends against mtime spoofing (metadata check never bypasses hash check)
         - Keeps Plane B active authorization strictly closed
@@ -495,117 +503,132 @@ class ReadReceiptEvaluator:
         # 1. Resolve source identity
         norm_id, _ = normalize_source_identity(display_path, self.base_dir)
         if norm_id is None:
-            return ReadReceiptDecision(
-                call_id=call_id,
-                receipt_id=None,
-                disposition=ReadReceiptDisposition.SOURCE_IDENTITY_UNKNOWN_RAW,
-                freshness_level=FreshnessLevel.F0_UNKNOWN,
-                original_path=display_path,
-                resolved_path_identity=None,
-                requested_view=requested_view,
-                raw_bytes=0,
-                delivered_sha256="",
-                hypothetical_reference=None,
-                reference_bytes=0,
-                hypothetical_bytes_avoided=0,
-                call_distance=None,
-                episode_distance=None,
-                reason="Source path identity cannot be deterministically resolved",
-                plane_a_freshness_proven=False,
-                plane_b_active_authorized=False,
+            return LiveReadResult(
+                raw_bytes=b"",
+                decision=ReadReceiptDecision(
+                    call_id=call_id,
+                    receipt_id=None,
+                    disposition=ReadReceiptDisposition.SOURCE_IDENTITY_UNKNOWN_RAW,
+                    freshness_level=FreshnessLevel.F0_UNKNOWN,
+                    original_path=display_path,
+                    resolved_path_identity=None,
+                    requested_view=requested_view,
+                    raw_bytes=0,
+                    delivered_sha256="",
+                    hypothetical_reference=None,
+                    reference_bytes=0,
+                    hypothetical_bytes_avoided=0,
+                    call_distance=None,
+                    episode_distance=None,
+                    reason="Source path identity cannot be deterministically resolved",
+                    plane_a_freshness_proven=False,
+                    plane_b_active_authorized=False,
+                ),
             )
 
         # 2. Check file existence
         try:
             st = file_path.stat()
         except FileNotFoundError:
-            return ReadReceiptDecision(
-                call_id=call_id,
-                receipt_id=None,
-                disposition=ReadReceiptDisposition.MISSING_FILE_RAW,
-                freshness_level=FreshnessLevel.F0_UNKNOWN,
-                original_path=display_path,
-                resolved_path_identity=norm_id,
-                requested_view=requested_view,
-                raw_bytes=0,
-                delivered_sha256="",
-                hypothetical_reference=None,
-                reference_bytes=0,
-                hypothetical_bytes_avoided=0,
-                call_distance=None,
-                episode_distance=None,
-                reason="File does not exist on disk",
-                plane_a_freshness_proven=False,
-                plane_b_active_authorized=False,
+            return LiveReadResult(
+                raw_bytes=b"",
+                decision=ReadReceiptDecision(
+                    call_id=call_id,
+                    receipt_id=None,
+                    disposition=ReadReceiptDisposition.MISSING_FILE_RAW,
+                    freshness_level=FreshnessLevel.F0_UNKNOWN,
+                    original_path=display_path,
+                    resolved_path_identity=norm_id,
+                    requested_view=requested_view,
+                    raw_bytes=0,
+                    delivered_sha256="",
+                    hypothetical_reference=None,
+                    reference_bytes=0,
+                    hypothetical_bytes_avoided=0,
+                    call_distance=None,
+                    episode_distance=None,
+                    reason="File does not exist on disk",
+                    plane_a_freshness_proven=False,
+                    plane_b_active_authorized=False,
+                ),
             )
         except PermissionError:
-            return ReadReceiptDecision(
-                call_id=call_id,
-                receipt_id=None,
-                disposition=ReadReceiptDisposition.READ_ERROR_RAW,
-                freshness_level=FreshnessLevel.F0_UNKNOWN,
-                original_path=display_path,
-                resolved_path_identity=norm_id,
-                requested_view=requested_view,
-                raw_bytes=0,
-                delivered_sha256="",
-                hypothetical_reference=None,
-                reference_bytes=0,
-                hypothetical_bytes_avoided=0,
-                call_distance=None,
-                episode_distance=None,
-                reason="Permission denied reading file",
-                plane_a_freshness_proven=False,
-                plane_b_active_authorized=False,
+            return LiveReadResult(
+                raw_bytes=b"",
+                decision=ReadReceiptDecision(
+                    call_id=call_id,
+                    receipt_id=None,
+                    disposition=ReadReceiptDisposition.READ_ERROR_RAW,
+                    freshness_level=FreshnessLevel.F0_UNKNOWN,
+                    original_path=display_path,
+                    resolved_path_identity=norm_id,
+                    requested_view=requested_view,
+                    raw_bytes=0,
+                    delivered_sha256="",
+                    hypothetical_reference=None,
+                    reference_bytes=0,
+                    hypothetical_bytes_avoided=0,
+                    call_distance=None,
+                    episode_distance=None,
+                    reason="Permission denied reading file",
+                    plane_a_freshness_proven=False,
+                    plane_b_active_authorized=False,
+                ),
             )
         except Exception as e:
-            return ReadReceiptDecision(
-                call_id=call_id,
-                receipt_id=None,
-                disposition=ReadReceiptDisposition.READ_ERROR_RAW,
-                freshness_level=FreshnessLevel.F0_UNKNOWN,
-                original_path=display_path,
-                resolved_path_identity=norm_id,
-                requested_view=requested_view,
-                raw_bytes=0,
-                delivered_sha256="",
-                hypothetical_reference=None,
-                reference_bytes=0,
-                hypothetical_bytes_avoided=0,
-                call_distance=None,
-                episode_distance=None,
-                reason=f"Disk read failure: {e}",
-                plane_a_freshness_proven=False,
-                plane_b_active_authorized=False,
+            return LiveReadResult(
+                raw_bytes=b"",
+                decision=ReadReceiptDecision(
+                    call_id=call_id,
+                    receipt_id=None,
+                    disposition=ReadReceiptDisposition.READ_ERROR_RAW,
+                    freshness_level=FreshnessLevel.F0_UNKNOWN,
+                    original_path=display_path,
+                    resolved_path_identity=norm_id,
+                    requested_view=requested_view,
+                    raw_bytes=0,
+                    delivered_sha256="",
+                    hypothetical_reference=None,
+                    reference_bytes=0,
+                    hypothetical_bytes_avoided=0,
+                    call_distance=None,
+                    episode_distance=None,
+                    reason=f"Disk read failure: {e}",
+                    plane_a_freshness_proven=False,
+                    plane_b_active_authorized=False,
+                ),
             )
 
         file_size = st.st_size
         mtime_ns = getattr(st, "st_mtime_ns", int(st.st_mtime * 1e9))
 
-        # 3. Read current view bytes from disk
+        # 3. Read current view bytes from disk (Single physical read)
         try:
             with open(file_path, "rb") as f:
                 full_bytes = f.read()
             view_bytes = extract_view_bytes(full_bytes, requested_view)
         except Exception as e:
-            return ReadReceiptDecision(
-                call_id=call_id,
-                receipt_id=None,
-                disposition=ReadReceiptDisposition.READ_ERROR_RAW,
-                freshness_level=FreshnessLevel.F0_UNKNOWN,
-                original_path=display_path,
-                resolved_path_identity=norm_id,
-                requested_view=requested_view,
-                raw_bytes=0,
-                delivered_sha256="",
-                hypothetical_reference=None,
-                reference_bytes=0,
-                hypothetical_bytes_avoided=0,
-                call_distance=None,
-                episode_distance=None,
-                reason=f"Failed reading view bytes: {e}",
-                plane_a_freshness_proven=False,
-                plane_b_active_authorized=False,
+            return LiveReadResult(
+                raw_bytes=b"",
+                decision=ReadReceiptDecision(
+                    call_id=call_id,
+                    receipt_id=None,
+                    disposition=ReadReceiptDisposition.READ_ERROR_RAW,
+                    freshness_level=FreshnessLevel.F0_UNKNOWN,
+                    original_path=display_path,
+                    resolved_path_identity=norm_id,
+                    requested_view=requested_view,
+                    raw_bytes=0,
+                    delivered_sha256="",
+                    hypothetical_reference=None,
+                    reference_bytes=0,
+                    hypothetical_bytes_avoided=0,
+                    call_distance=None,
+                    episode_distance=None,
+                    reason=f"Failed reading view bytes: {e}",
+                    plane_a_freshness_proven=False,
+                    plane_b_active_authorized=False,
+                ),
             )
 
         raw_bytes_len = len(view_bytes)
@@ -614,52 +637,58 @@ class ReadReceiptEvaluator:
 
         # 4. Check sensitivity screening
         if contains_sensitive_material(view_bytes):
-            return ReadReceiptDecision(
-                call_id=call_id,
-                receipt_id=None,
-                disposition=ReadReceiptDisposition.SENSITIVE_POLICY_RAW,
-                freshness_level=FreshnessLevel.F0_UNKNOWN,
-                original_path=display_path,
-                resolved_path_identity=norm_id,
-                requested_view=requested_view,
-                raw_bytes=raw_bytes_len,
-                delivered_sha256=curr_sha256,
-                hypothetical_reference=None,
-                reference_bytes=0,
-                hypothetical_bytes_avoided=0,
-                call_distance=None,
-                episode_distance=None,
-                reason="Sensitive material detected in file content; persistence/reference denied",
-                plane_a_freshness_proven=False,
-                plane_b_active_authorized=False,
-                local_io_bytes_read=local_io_bytes,
-                model_visible_raw_bytes=raw_bytes_len,
-                hypothetical_model_visible_reference_bytes=raw_bytes_len,
+            return LiveReadResult(
+                raw_bytes=view_bytes,
+                decision=ReadReceiptDecision(
+                    call_id=call_id,
+                    receipt_id=None,
+                    disposition=ReadReceiptDisposition.SENSITIVE_POLICY_RAW,
+                    freshness_level=FreshnessLevel.F0_UNKNOWN,
+                    original_path=display_path,
+                    resolved_path_identity=norm_id,
+                    requested_view=requested_view,
+                    raw_bytes=raw_bytes_len,
+                    delivered_sha256=curr_sha256,
+                    hypothetical_reference=None,
+                    reference_bytes=0,
+                    hypothetical_bytes_avoided=0,
+                    call_distance=None,
+                    episode_distance=None,
+                    reason="Sensitive material detected in file content; persistence/reference denied",
+                    plane_a_freshness_proven=False,
+                    plane_b_active_authorized=False,
+                    local_io_bytes_read=local_io_bytes,
+                    model_visible_raw_bytes=raw_bytes_len,
+                    hypothetical_model_visible_reference_bytes=raw_bytes_len,
+                ),
             )
 
         # 5. Check if view is deterministic
         if requested_view.view_type == ReadViewType.UNKNOWN_VIEW:
-            return ReadReceiptDecision(
-                call_id=call_id,
-                receipt_id=None,
-                disposition=ReadReceiptDisposition.VIEW_IDENTITY_UNKNOWN_RAW,
-                freshness_level=FreshnessLevel.F0_UNKNOWN,
-                original_path=display_path,
-                resolved_path_identity=norm_id,
-                requested_view=requested_view,
-                raw_bytes=raw_bytes_len,
-                delivered_sha256=curr_sha256,
-                hypothetical_reference=None,
-                reference_bytes=0,
-                hypothetical_bytes_avoided=0,
-                call_distance=None,
-                episode_distance=None,
-                reason="Read view syntax cannot be deterministically verified",
-                plane_a_freshness_proven=False,
-                plane_b_active_authorized=False,
-                local_io_bytes_read=local_io_bytes,
-                model_visible_raw_bytes=raw_bytes_len,
-                hypothetical_model_visible_reference_bytes=raw_bytes_len,
+            return LiveReadResult(
+                raw_bytes=view_bytes,
+                decision=ReadReceiptDecision(
+                    call_id=call_id,
+                    receipt_id=None,
+                    disposition=ReadReceiptDisposition.VIEW_IDENTITY_UNKNOWN_RAW,
+                    freshness_level=FreshnessLevel.F0_UNKNOWN,
+                    original_path=display_path,
+                    resolved_path_identity=norm_id,
+                    requested_view=requested_view,
+                    raw_bytes=raw_bytes_len,
+                    delivered_sha256=curr_sha256,
+                    hypothetical_reference=None,
+                    reference_bytes=0,
+                    hypothetical_bytes_avoided=0,
+                    call_distance=None,
+                    episode_distance=None,
+                    reason="Read view syntax cannot be deterministically verified",
+                    plane_a_freshness_proven=False,
+                    plane_b_active_authorized=False,
+                    local_io_bytes_read=local_io_bytes,
+                    model_visible_raw_bytes=raw_bytes_len,
+                    hypothetical_model_visible_reference_bytes=raw_bytes_len,
+                ),
             )
 
         receipt_key = (norm_id, requested_view.view_id)
@@ -692,27 +721,30 @@ class ReadReceiptEvaluator:
             self._active_receipts[receipt_key] = receipt
             self._receipts_by_id[rcpt_id] = receipt
 
-            return ReadReceiptDecision(
-                call_id=call_id,
-                receipt_id=rcpt_id,
-                disposition=ReadReceiptDisposition.FIRST_READ_RAW,
-                freshness_level=FreshnessLevel.F0_UNKNOWN,
-                original_path=display_path,
-                resolved_path_identity=norm_id,
-                requested_view=requested_view,
-                raw_bytes=raw_bytes_len,
-                delivered_sha256=curr_sha256,
-                hypothetical_reference=None,
-                reference_bytes=0,
-                hypothetical_bytes_avoided=0,
-                call_distance=None,
-                episode_distance=None,
-                reason="Initial delivery of file read view",
-                plane_a_freshness_proven=False,
-                plane_b_active_authorized=False,
-                local_io_bytes_read=local_io_bytes,
-                model_visible_raw_bytes=raw_bytes_len,
-                hypothetical_model_visible_reference_bytes=raw_bytes_len,
+            return LiveReadResult(
+                raw_bytes=view_bytes,
+                decision=ReadReceiptDecision(
+                    call_id=call_id,
+                    receipt_id=rcpt_id,
+                    disposition=ReadReceiptDisposition.FIRST_READ_RAW,
+                    freshness_level=FreshnessLevel.F0_UNKNOWN,
+                    original_path=display_path,
+                    resolved_path_identity=norm_id,
+                    requested_view=requested_view,
+                    raw_bytes=raw_bytes_len,
+                    delivered_sha256=curr_sha256,
+                    hypothetical_reference=None,
+                    reference_bytes=0,
+                    hypothetical_bytes_avoided=0,
+                    call_distance=None,
+                    episode_distance=None,
+                    reason="Initial delivery of file read view",
+                    plane_a_freshness_proven=False,
+                    plane_b_active_authorized=False,
+                    local_io_bytes_read=local_io_bytes,
+                    model_visible_raw_bytes=raw_bytes_len,
+                    hypothetical_model_visible_reference_bytes=raw_bytes_len,
+                ),
             )
 
         # Case B: Subsequent read — evaluate freshness
@@ -742,54 +774,60 @@ class ReadReceiptEvaluator:
             existing_receipt.last_seen_call = call_index
             existing_receipt.last_seen_episode = episode_id
 
-            return ReadReceiptDecision(
-                call_id=call_id,
-                receipt_id=existing_receipt.receipt_id,
-                disposition=ReadReceiptDisposition.SOURCE_CHANGED_RAW,
-                freshness_level=current_freshness,
-                original_path=display_path,
-                resolved_path_identity=norm_id,
-                requested_view=requested_view,
-                raw_bytes=raw_bytes_len,
-                delivered_sha256=curr_sha256,
-                hypothetical_reference=None,
-                reference_bytes=0,
-                hypothetical_bytes_avoided=0,
-                call_distance=call_distance,
-                episode_distance=ep_distance,
-                reason="File content modified since receipt creation (hash mismatch)",
-                plane_a_freshness_proven=False,
-                plane_b_active_authorized=False,
-                local_io_bytes_read=local_io_bytes,
-                model_visible_raw_bytes=raw_bytes_len,
-                hypothetical_model_visible_reference_bytes=raw_bytes_len,
+            return LiveReadResult(
+                raw_bytes=view_bytes,
+                decision=ReadReceiptDecision(
+                    call_id=call_id,
+                    receipt_id=existing_receipt.receipt_id,
+                    disposition=ReadReceiptDisposition.SOURCE_CHANGED_RAW,
+                    freshness_level=current_freshness,
+                    original_path=display_path,
+                    resolved_path_identity=norm_id,
+                    requested_view=requested_view,
+                    raw_bytes=raw_bytes_len,
+                    delivered_sha256=curr_sha256,
+                    hypothetical_reference=None,
+                    reference_bytes=0,
+                    hypothetical_bytes_avoided=0,
+                    call_distance=call_distance,
+                    episode_distance=ep_distance,
+                    reason="File content modified since receipt creation (hash mismatch)",
+                    plane_a_freshness_proven=False,
+                    plane_b_active_authorized=False,
+                    local_io_bytes_read=local_io_bytes,
+                    model_visible_raw_bytes=raw_bytes_len,
+                    hypothetical_model_visible_reference_bytes=raw_bytes_len,
+                ),
             )
 
         current_freshness = FreshnessLevel.F3_CURRENT_VIEW_HASH_EQUAL
 
         # Step B3: Evaluate Byte Equality (F4)
         if raw_bytes_len != existing_receipt.delivered_bytes:
-            return ReadReceiptDecision(
-                call_id=call_id,
-                receipt_id=existing_receipt.receipt_id,
-                disposition=ReadReceiptDisposition.SOURCE_CHANGED_RAW,
-                freshness_level=current_freshness,
-                original_path=display_path,
-                resolved_path_identity=norm_id,
-                requested_view=requested_view,
-                raw_bytes=raw_bytes_len,
-                delivered_sha256=curr_sha256,
-                hypothetical_reference=None,
-                reference_bytes=0,
-                hypothetical_bytes_avoided=0,
-                call_distance=call_distance,
-                episode_distance=ep_distance,
-                reason="Byte length mismatch despite hash collision",
-                plane_a_freshness_proven=False,
-                plane_b_active_authorized=False,
-                local_io_bytes_read=local_io_bytes,
-                model_visible_raw_bytes=raw_bytes_len,
-                hypothetical_model_visible_reference_bytes=raw_bytes_len,
+            return LiveReadResult(
+                raw_bytes=view_bytes,
+                decision=ReadReceiptDecision(
+                    call_id=call_id,
+                    receipt_id=existing_receipt.receipt_id,
+                    disposition=ReadReceiptDisposition.SOURCE_CHANGED_RAW,
+                    freshness_level=current_freshness,
+                    original_path=display_path,
+                    resolved_path_identity=norm_id,
+                    requested_view=requested_view,
+                    raw_bytes=raw_bytes_len,
+                    delivered_sha256=curr_sha256,
+                    hypothetical_reference=None,
+                    reference_bytes=0,
+                    hypothetical_bytes_avoided=0,
+                    call_distance=call_distance,
+                    episode_distance=ep_distance,
+                    reason="Byte length mismatch despite hash collision",
+                    plane_a_freshness_proven=False,
+                    plane_b_active_authorized=False,
+                    local_io_bytes_read=local_io_bytes,
+                    model_visible_raw_bytes=raw_bytes_len,
+                    hypothetical_model_visible_reference_bytes=raw_bytes_len,
+                ),
             )
 
         # F4 Proven!
@@ -806,27 +844,30 @@ class ReadReceiptEvaluator:
 
         if ref_bytes >= raw_bytes_len:
             # Reference does not save bytes (tiny file expansion)
-            return ReadReceiptDecision(
-                call_id=call_id,
-                receipt_id=existing_receipt.receipt_id,
-                disposition=ReadReceiptDisposition.REFERENCE_NOT_ECONOMIC_RAW,
-                freshness_level=current_freshness,
-                original_path=display_path,
-                resolved_path_identity=norm_id,
-                requested_view=requested_view,
-                raw_bytes=raw_bytes_len,
-                delivered_sha256=curr_sha256,
-                hypothetical_reference=None,
-                reference_bytes=0,
-                hypothetical_bytes_avoided=0,
-                call_distance=call_distance,
-                episode_distance=ep_distance,
-                reason=f"Reference size ({ref_bytes} B) >= raw visible bytes ({raw_bytes_len} B)",
-                plane_a_freshness_proven=True,
-                plane_b_active_authorized=False,
-                local_io_bytes_read=local_io_bytes,
-                model_visible_raw_bytes=raw_bytes_len,
-                hypothetical_model_visible_reference_bytes=raw_bytes_len,
+            return LiveReadResult(
+                raw_bytes=view_bytes,
+                decision=ReadReceiptDecision(
+                    call_id=call_id,
+                    receipt_id=existing_receipt.receipt_id,
+                    disposition=ReadReceiptDisposition.REFERENCE_NOT_ECONOMIC_RAW,
+                    freshness_level=current_freshness,
+                    original_path=display_path,
+                    resolved_path_identity=norm_id,
+                    requested_view=requested_view,
+                    raw_bytes=raw_bytes_len,
+                    delivered_sha256=curr_sha256,
+                    hypothetical_reference=None,
+                    reference_bytes=0,
+                    hypothetical_bytes_avoided=0,
+                    call_distance=call_distance,
+                    episode_distance=ep_distance,
+                    reason=f"Reference size ({ref_bytes} B) >= raw visible bytes ({raw_bytes_len} B)",
+                    plane_a_freshness_proven=True,
+                    plane_b_active_authorized=False,
+                    local_io_bytes_read=local_io_bytes,
+                    model_visible_raw_bytes=raw_bytes_len,
+                    hypothetical_model_visible_reference_bytes=raw_bytes_len,
+                ),
             )
 
         # Update receipt access metadata
@@ -838,28 +879,54 @@ class ReadReceiptEvaluator:
 
         avoided_bytes = raw_bytes_len - ref_bytes
 
-        return ReadReceiptDecision(
-            call_id=call_id,
-            receipt_id=existing_receipt.receipt_id,
-            disposition=ReadReceiptDisposition.LIVE_FRESHNESS_PROVEN_SHADOW_REFERENCE,
-            freshness_level=FreshnessLevel.F4_CURRENT_VIEW_BYTE_EQUAL,
-            original_path=display_path,
-            resolved_path_identity=norm_id,
-            requested_view=requested_view,
-            raw_bytes=raw_bytes_len,
-            delivered_sha256=curr_sha256,
-            hypothetical_reference=ref_str,
-            reference_bytes=ref_bytes,
-            hypothetical_bytes_avoided=avoided_bytes,
-            call_distance=call_distance,
-            episode_distance=ep_distance,
-            reason="Exact view byte identity verified (F4); reference economic",
-            plane_a_freshness_proven=True,
-            plane_b_active_authorized=False,  # Plane B remains closed in M07!
-            local_io_bytes_read=local_io_bytes,
-            model_visible_raw_bytes=raw_bytes_len,
-            hypothetical_model_visible_reference_bytes=ref_bytes,
+        return LiveReadResult(
+            raw_bytes=view_bytes,
+            decision=ReadReceiptDecision(
+                call_id=call_id,
+                receipt_id=existing_receipt.receipt_id,
+                disposition=ReadReceiptDisposition.LIVE_FRESHNESS_PROVEN_SHADOW_REFERENCE,
+                freshness_level=FreshnessLevel.F4_CURRENT_VIEW_BYTE_EQUAL,
+                original_path=display_path,
+                resolved_path_identity=norm_id,
+                requested_view=requested_view,
+                raw_bytes=raw_bytes_len,
+                delivered_sha256=curr_sha256,
+                hypothetical_reference=ref_str,
+                reference_bytes=ref_bytes,
+                hypothetical_bytes_avoided=avoided_bytes,
+                call_distance=call_distance,
+                episode_distance=ep_distance,
+                reason="Exact view byte identity verified (F4); reference economic",
+                plane_a_freshness_proven=True,
+                plane_b_active_authorized=False,  # Plane B remains closed in M07!
+                local_io_bytes_read=local_io_bytes,
+                model_visible_raw_bytes=raw_bytes_len,
+                hypothetical_model_visible_reference_bytes=ref_bytes,
+            ),
         )
+
+    def evaluate_live_read(
+        self,
+        call_id: str,
+        file_path: pathlib.Path,
+        view: Optional[ReadView] = None,
+        call_index: int = 0,
+        episode_id: Optional[int] = None,
+        timestamp: Optional[str] = None,
+        git_head: Optional[str] = None,
+        worktree_state: Optional[str] = None,
+    ) -> ReadReceiptDecision:
+        """Evaluate a live file read on disk against active session receipts (compatibility wrapper)."""
+        return self.evaluate_live_read_result(
+            call_id=call_id,
+            file_path=file_path,
+            view=view,
+            call_index=call_index,
+            episode_id=episode_id,
+            timestamp=timestamp,
+            git_head=git_head,
+            worktree_state=worktree_state,
+        ).decision
 
     def evaluate_historical_event(
         self,

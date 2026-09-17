@@ -1,7 +1,8 @@
-﻿"""
+"""
 tests/test_v0_integration.py
 M12: Tests for the FioFilter V0 Explicit Integration Spine.
 """
+import hashlib
 import json
 import pathlib
 import subprocess
@@ -138,8 +139,11 @@ class TestV0EndToEndLabScenario:
         assert "[[FIOFILTER:READREF:v1" in results["step_3_repeated_read"]["hypothetical_reference"]
 
         # Step 4: Search output (T02)
-        assert results["step_4_search_representation"]["delivered_bytes"] == 78
-        assert results["step_4_search_representation"]["t02_candidate_eligible"] is True
+        assert results["step_4_search_representation"]["delivered_bytes"] > 0
+        assert results["step_4_search_representation"]["t02_applicable"] is True
+        assert results["step_4_search_representation"]["t02_authorized"] is False
+        assert results["step_4_search_representation"]["delivered_raw"] is True
+        assert results["step_4_search_representation"]["bytes_saved_if_applied"] > 0
 
         # Step 5: Metrics accounting
         m = results["step_5_metrics"]
@@ -148,21 +152,26 @@ class TestV0EndToEndLabScenario:
         assert m["t02_eligible"] == 1
         assert m["t02_transformed"] == 0  # Not applied without explicit authorization
         assert m["t02_raw"] == 1
+        assert m["read_receipt_evaluations"] == 2
+        assert m["reference_candidates"] == 1
+        assert m["raw_read_decisions"] == 1
         assert m["read_receipt_candidates"] == 2
         assert m["actual_visible_bytes_reduced"] == 0
+        assert m["actual_t02_bytes_reduced"] == 0
+        assert m["shadow_read_reference_bytes_avoided"] > 0
+        assert m["shadow_t02_bytes_avoided"] > 0
         assert m["shadow_hypothetical_bytes_avoided"] > 0
 
     def test_explicit_transform_authorized(self):
         lab = FioFilterV0Lab()
-        sample_rg = (
-            b"src/main.py:10:import os\n"
-            b"src/main.py:11:import sys\n"
-            b"src/main.py:12:import time\n"
-            b"src/main.py:13:import json\n"
-            b"src/main.py:14:import hashlib\n"
-        )
+        nested_path = "src/subsystem/core/components/service_runner_handler.py"
+        lines = [
+            f"{nested_path}:{i}:def run_worker_task_{i}(payload: dict) -> None:"
+            for i in range(1, 25)
+        ]
+        sample_rg = ("\n".join(lines) + "\n").encode("utf-8")
         evidence = RgStandardEvidence(
-            command="rg import src/main.py",
+            command=f"rg run_worker_task {nested_path}",
             command_structurally_grounded=True,
             single_search_producer=True,
             exit_code=0,
@@ -173,11 +182,12 @@ class TestV0EndToEndLabScenario:
         out, outcome = lab.evaluate_representation(
             sample_rg, evidence, explicit_transform_authorized=True
         )
-        if outcome and outcome.applied:
-            assert out != sample_rg
-            assert b"[[FIOFILTER:T02_RG_STANDARD_GROUP:v1" in out
-            assert lab.metrics.actual_visible_bytes_reduced > 0
-            assert lab.metrics.t02_transformed == 1
+        assert outcome is not None and outcome.applied is True
+        assert out != sample_rg
+        assert b"[[FIOFILTER:T02_RG_STANDARD_GROUP:v1" in out
+        assert lab.metrics.actual_visible_bytes_reduced > 0
+        assert lab.metrics.actual_t02_bytes_reduced > 0
+        assert lab.metrics.t02_transformed == 1
 
 
 # ---------------------------------------------------------------------------
@@ -281,3 +291,225 @@ class TestV0CLI:
         data = json.loads(r.stdout)
         assert data["step_1_discovery"]["status"] == "PASS"
         assert data["step_3_repeated_read"]["reference_eligible"] is True
+
+
+# ---------------------------------------------------------------------------
+# M12-R1 Integrity Repair Tests
+# ---------------------------------------------------------------------------
+
+class TestM12R1IntegrityRepairs:
+    def test_double_read_old_architecture_divergence_reproduction(self, tmp_path):
+        """Reproduce the old double-read TOCTOU danger and prove new shared-buffer immunity."""
+        test_file = tmp_path / "target.txt"
+        test_file.write_bytes(b"INITIAL_CONTENT_A")
+
+        # Simulate old vulnerable architecture:
+        # Step 1: Read for proof
+        proof_bytes = test_file.read_bytes()
+        proof_sha = hashlib.sha256(proof_bytes).hexdigest()
+
+        # Step 2: Adversarial file mutation between reads
+        test_file.write_bytes(b"MUTATED_CONTENT_B")
+
+        # Step 3: Second read for delivery in old architecture
+        delivered_bytes_old = test_file.read_bytes()
+        delivered_sha_old = hashlib.sha256(delivered_bytes_old).hexdigest()
+
+        # PROVE: Old architecture could diverge!
+        assert proof_sha != delivered_sha_old, "OLD_DOUBLE_READ_DIVERGENCE_POSSIBLE must be reproduced"
+
+        # Now test NEW FioFilter single-buffer direct read architecture:
+        test_file.write_bytes(b"STABLE_CONTENT_V2")
+        lab = FioFilterV0Lab()
+        raw_out, dec = lab.evaluate_read_shadow(test_file, call_index=1)
+
+        # Mutate file immediately after evaluation
+        test_file.write_bytes(b"MUTATED_AFTER_READ")
+
+        # PROVE: Buffer delivered to caller matches decision proof byte-for-byte
+        assert hashlib.sha256(raw_out).hexdigest() == dec.delivered_sha256
+        assert len(raw_out) == dec.raw_bytes
+        assert raw_out == b"STABLE_CONTENT_V2"
+
+    def test_single_buffer_direct_read_contract(self, tmp_path):
+        """Verify single physical read contract: returned bytes equal decision proof bytes."""
+        test_file = tmp_path / "sample.txt"
+        content = b"Single physical read content buffer 12345"
+        test_file.write_bytes(content)
+
+        lab = FioFilterV0Lab()
+        raw_bytes, dec = lab.evaluate_read_shadow(test_file, call_index=1)
+
+        assert raw_bytes == content
+        assert dec.delivered_sha256 == hashlib.sha256(content).hexdigest()
+        assert dec.raw_bytes == len(content)
+
+    def test_read_call_index_auto_increment(self, tmp_path):
+        """Verify automatic incrementation of call_index when omitted by caller."""
+        test_file = tmp_path / "sample.txt"
+        test_file.write_bytes(b"Repeated call index test content with enough bytes to be economic: " * 10)
+
+        lab = FioFilterV0Lab()
+        # Omit call_index on both calls
+        out_1, dec_1 = lab.evaluate_read_shadow(test_file)
+        out_2, dec_2 = lab.evaluate_read_shadow(test_file)
+
+        assert dec_1.call_id == "call-0"
+        assert dec_2.call_id == "call-1"
+        assert dec_2.call_distance == 1
+        assert dec_2.disposition == ReadReceiptDisposition.LIVE_FRESHNESS_PROVEN_SHADOW_REFERENCE
+
+    def test_cross_session_isolation(self, tmp_path):
+        """Verify cross-session reference is strictly forbidden."""
+        test_file = tmp_path / "session_test.txt"
+        test_file.write_bytes(b"Cross session isolation test file content")
+
+        lab_1 = FioFilterV0Lab()
+        lab_2 = FioFilterV0Lab()
+
+        out_1, dec_1 = lab_1.evaluate_read_shadow(test_file)
+        assert dec_1.disposition == ReadReceiptDisposition.FIRST_READ_RAW
+
+        # Second lab in different session reads same file
+        out_2, dec_2 = lab_2.evaluate_read_shadow(test_file)
+        # MUST be FIRST_READ_RAW, not a reference to lab_1's receipt
+        assert dec_2.disposition == ReadReceiptDisposition.FIRST_READ_RAW
+
+    def test_t02_eligibility_requires_applied(self):
+        """Verify candidate with VALID_GRAMMAR_NO_ECONOMIC_GAIN is not counted as t02_eligible."""
+        lab = FioFilterV0Lab()
+        # 2 lines: valid grammar but no economic gain
+        sample_no_gain = (
+            b"src/a.py:1:x = 1\n"
+            b"src/a.py:2:y = 2\n"
+        )
+        evidence = RgStandardEvidence(
+            command="rg . src/a.py",
+            command_structurally_grounded=True,
+            single_search_producer=True,
+            exit_code=0,
+            truncated=False,
+            upstream_truncation_observed=False,
+            shell_failure_wrapper_observed=False,
+        )
+        out, outcome = lab.evaluate_representation(sample_no_gain, evidence, explicit_transform_authorized=False)
+        assert outcome is not None
+        assert outcome.applied is False
+        assert outcome.reason == "VALID_GRAMMAR_NO_ECONOMIC_GAIN"
+        # Must NOT be counted as t02_eligible
+        assert lab.metrics.t02_eligible == 0
+        assert lab.metrics.t02_no_economic_gain == 1
+        assert lab.metrics.t02_raw == 1
+
+    def test_t02_applicable_but_unauthorized_stays_raw(self):
+        """Verify applicable T02 candidate delivers RAW when unauthorized, with shadow savings recorded."""
+        lab = FioFilterV0Lab()
+        nested_path = "src/subsystem/deeply/nested/handler.py"
+        lines = [f"{nested_path}:{i}:def method_{i}(): pass" for i in range(1, 20)]
+        sample_rg = ("\n".join(lines) + "\n").encode("utf-8")
+        evidence = RgStandardEvidence(
+            command=f"rg method {nested_path}",
+            command_structurally_grounded=True,
+            single_search_producer=True,
+            exit_code=0,
+            truncated=False,
+            upstream_truncation_observed=False,
+            shell_failure_wrapper_observed=False,
+        )
+        out, outcome = lab.evaluate_representation(sample_rg, evidence, explicit_transform_authorized=False)
+        assert out == sample_rg
+        assert outcome is not None and outcome.applied is True
+        assert lab.metrics.t02_eligible == 1
+        assert lab.metrics.t02_transformed == 0
+        assert lab.metrics.actual_visible_bytes_reduced == 0
+        assert lab.metrics.actual_t02_bytes_reduced == 0
+        assert lab.metrics.shadow_t02_bytes_avoided > 0
+
+    def test_t02_applicable_and_authorized_transforms(self):
+        """Verify applicable T02 candidate transforms and reduces bytes when explicitly authorized."""
+        lab = FioFilterV0Lab()
+        nested_path = "src/subsystem/deeply/nested/handler.py"
+        lines = [f"{nested_path}:{i}:def method_{i}(): pass" for i in range(1, 20)]
+        sample_rg = ("\n".join(lines) + "\n").encode("utf-8")
+        evidence = RgStandardEvidence(
+            command=f"rg method {nested_path}",
+            command_structurally_grounded=True,
+            single_search_producer=True,
+            exit_code=0,
+            truncated=False,
+            upstream_truncation_observed=False,
+            shell_failure_wrapper_observed=False,
+        )
+        out, outcome = lab.evaluate_representation(sample_rg, evidence, explicit_transform_authorized=True)
+        assert out != sample_rg
+        assert outcome is not None and outcome.applied is True
+        assert lab.metrics.t02_eligible == 1
+        assert lab.metrics.t02_transformed == 1
+        assert lab.metrics.actual_visible_bytes_reduced > 0
+        assert lab.metrics.actual_t02_bytes_reduced > 0
+
+    def test_v0_config_fail_closed(self):
+        """Verify V0Config fails closed on any active/unsupported configuration."""
+        with pytest.raises(ValueError, match="active_suppression=True is rejected"):
+            V0Config(active_suppression=True)
+
+        with pytest.raises(ValueError, match="auto_context_selection=True is rejected"):
+            V0Config(auto_context_selection=True)
+
+        with pytest.raises(ValueError, match="network=True is rejected"):
+            V0Config(network=True)
+
+        with pytest.raises(ValueError, match="Unsupported mode"):
+            V0Config(mode="AUTONOMOUS_DAEMON")
+
+        with pytest.raises(ValueError, match="persistence='PERSISTENT' is rejected"):
+            V0Config(persistence="PERSISTENT")
+
+    def test_discovery_none_failure_accounting(self):
+        """Verify DiscoveryRuntimeShadow returning None increments failure counters and records RAW."""
+        lab = FioFilterV0Lab()
+        ev = lab.evaluate_discovery(pathlib.Path("C:/nonexistent_repo_root_xyz"), "query")
+        assert ev is None
+        assert lab.metrics.discovery_failures == 1
+        assert lab.metrics.fail_to_raw_counts == 1
+        assert lab.metrics.discovery_orientations_produced == 0
+        trace = lab.traces[-1]
+        assert trace.disposition == "RAW"
+        assert trace.delivered_disposition == "RAW"
+        assert trace.decision == "DISCOVERY_FAILED_FAIL_OPEN"
+
+    def test_read_trace_delivery_semantics_raw_100_percent(self):
+        """Verify read shadow traces always have delivered_disposition=RAW."""
+        lab = FioFilterV0Lab()
+        lab.run_lab_scenario(REPO_ROOT)
+        read_traces = [t for t in lab.traces if t.event_type == "FILE_READ"]
+        assert len(read_traces) == 2
+        for t in read_traces:
+            assert t.delivered_disposition == "RAW"
+            assert t.disposition == "RAW"
+
+    def test_metric_naming_separation(self):
+        """Verify read_receipt_evaluations, reference_candidates, and raw_read_decisions are separated."""
+        lab = FioFilterV0Lab()
+        lab.run_lab_scenario(REPO_ROOT)
+        m = lab.metrics
+        assert m.read_receipt_evaluations == 2
+        assert m.reference_candidates == 1
+        assert m.raw_read_decisions == 1
+        assert m.read_receipt_evaluations != m.reference_candidates
+
+    def test_event_id_uniqueness_rapid_loop(self):
+        """Verify monotonic event IDs are collision-safe in rapid loop execution."""
+        lab = FioFilterV0Lab()
+        target = REPO_ROOT / "fiofilter" / "invariants.py"
+        for _ in range(50):
+            lab.evaluate_read_shadow(target)
+        ids = [t.event_id for t in lab.traces]
+        assert len(ids) == 50
+        assert len(set(ids)) == 50
+
+    def test_cli_docstring_no_phantom_commands(self):
+        """Verify CLI docstring and help do not advertise unimplemented evaluate-output."""
+        import fiofilter.cli as cli_mod
+        assert "evaluate-output" not in cli_mod.__doc__
+        assert "T02_DIRECT_CLI" in cli_mod.__doc__

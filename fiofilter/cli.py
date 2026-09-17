@@ -1,13 +1,17 @@
-﻿"""
+"""
 fiofilter.cli — Unified explicit CLI entry point for FioFilter V0.
 
 Commands:
   status           Report capability lifecycle states and operational invariants
   inspect-repo     Inspect repository HEAD and content-sensitive V2 digest
   discovery-shadow Run discovery shadow navigation on task query
-  evaluate-output  Evaluate search output representation (T02)
   read-shadow      Evaluate a file read through the read-receipt shadow harness
   run-lab-scenario Run deterministic end-to-end V0 integration scenario
+
+Note:
+  T02_DIRECT_CLI = DEFERRED_UNTIL_A_CLEAN_EXPLICIT_EVIDENCE_INTERFACE_IS_JUSTIFIED
+  T02 remains available through programmatic V0 API and integrated lab scenario.
+  ENGINE_METADATA_GATE_REMAINS in force.
 """
 
 from __future__ import annotations

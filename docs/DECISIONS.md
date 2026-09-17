@@ -1052,3 +1052,37 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   - Installing background daemons or auto-intercepting Codex/Antigravity sessions (rejected: strictly prohibited).
   - Claiming production readiness from offline lab pass (rejected: honest lifecycle boundaries).
 - **REVERSIBILITY**: High. Standalone integration layer with zero global hooks or side effects.
+
+---
+
+## M12-R1-D001 — V0 Integration Integrity Repair, TOCTOU Elimination, and Offline Freeze
+
+- **QUESTION**: Can FioFilter V0 be declared offline-complete and frozen without double-read TOCTOU vulnerabilities, accounting errors, or claim ambiguities?
+- **EVIDENCE**:
+  - **Double-Read TOCTOU Defect Reproduction (`M12_DOUBLE_READ_TOCTOU = REPRODUCED`)**: In M12, `evaluate_read_shadow()` called `read_evaluator.evaluate_live_read()` (which performed an initial disk read for freshness evaluation) and then called `path_obj.read_bytes()` for RAW delivery. If the underlying file mutated between reads, delivered bytes could diverge from the evaluated hash.
+  - **Single-Buffer Direct-Read Contract**: Implemented `evaluate_live_read_result()` returning `LiveReadResult(raw_bytes, decision)` from a single body read. `evaluate_read_shadow()` delivers the exact same ephemeral byte buffer evaluated for freshness proof (`PROOF_BYTES_EQUAL_DELIVERED_BYTES = PASS`, `PROOF_DELIVERY_BYTE_DIVERGENCE_WINDOW = ZERO_BY_SHARED_BUFFER`, `DIRECT_READ_BODY_READ_COUNT = 1`, `OLD_DOUBLE_READ_DIVERGENCE_POSSIBLE = YES`, `NEW_SHARED_BUFFER_DIVERGENCE = 0`).
+  - **Read Call Index & Session Contract**: Added monotonic auto-incrementing `_read_call_counter` for omitted `call_index`, ensuring non-zero call distances across repeated reads (`DEFAULT_REPEATED_READ_DISTANCE_CORRECT = PASS`). Maintained ephemeral session default with strict cross-session isolation (`CROSS_SESSION_REFERENCE = FORBIDDEN`, `EPHEMERAL_SESSION_DEFAULT = YES`).
+  - **T02 Eligibility Accounting Correction**: In M12, non-empty candidate byte counts under `VALID_GRAMMAR_NO_ECONOMIC_GAIN` were incorrectly counted as `t02_eligible`. Corrected rule: `T02_ELIGIBLE iff outcome.applied == True` before caller authorization is evaluated. Added capability-separated metric fields (`actual_t02_bytes_reduced`, `shadow_read_reference_bytes_avoided`, `shadow_t02_bytes_avoided`).
+  - **Repetitive Synthetic Fixture V2**: Updated scenario fixture to demonstrate valid grammar + lossless roundtrip + positive economic gain (1,611 B saved) delivering RAW when unauthorized (`LAB_T02_APPLICABLE = YES`, `LAB_T02_AUTHORIZED = NO`, `LAB_T02_DELIVERED_RAW = YES`).
+  - **V0Config Fail-Closed Validation**: Added `__post_init__` rejecting `mode != 'EXPLICIT_LAB'`, `active_suppression == True`, `auto_context_selection == True`, `network == True`, or `persistence != 'EPHEMERAL'` (`UNSUPPORTED_ACTIVE_CONFIG_REJECTED = PASS`, `STATUS_CONFIG_CONTRADICTION_IMPOSSIBLE = PASS`).
+  - **Discovery Failure Accounting**: When `DiscoveryRuntimeShadow.evaluate()` returns `None`, disposition is recorded as `RAW`, failure metrics increment, and successful orientation is not counted (`DISCOVERY_NONE_NOT_COUNTED_AS_SUCCESS = PASS`).
+  - **Read Trace Delivery Semantics**: Decision trace records `delivered_disposition = "RAW"` (100% RAW delivery in shadow mode, `READ_SHADOW_DELIVERY_RAW = 100_PERCENT`).
+  - **Metric Taxonomy**: Separated `read_receipt_evaluations` from `reference_candidates` and `raw_read_decisions`.
+  - **Event ID Uniqueness**: Monotonic per-lab counter replaces wall-clock millisecond IDs (`V0_TRACE_EVENT_IDS_UNIQUE = PASS`).
+  - **Privacy Claim Correction**: Clarified that while raw queries and raw file contents are never persisted, the discovery ledger may store candidate paths, scores, timing data, and provenance hashes when local persistence is enabled. In-memory trace labeled `IN_MEMORY_DECISION_TRACE`.
+  - **Detector Claim Correction**: Recorded that deterministic detectors perform conservative screening (`DETECTOR_NO_MATCH != NON_SENSITIVE`).
+  - **CLI Contract Cleanup**: Removed phantom `evaluate-output` command docstring (`T02_DIRECT_CLI = DEFERRED_UNTIL_A_CLEAN_EXPLICIT_EVIDENCE_INTERFACE_IS_JUSTIFIED`).
+- **DECISION**:
+  - Incorporate all integrity repairs into branch `antigravity/m12-v0-integration-spine`.
+  - Fast-forward merge PR #11 into `main` via `git merge --ff-only` upon green CI checks.
+  - Declare offline V0 development complete and frozen: `OFFLINE_V0_STATUS = COMPLETE_AND_FROZEN_PENDING_LIVE_VALIDATION`.
+  - Do NOT implement M13 or add any further offline optimization algorithms.
+  - Codex status: `LIVE_CODEX_SHADOW = PENDING_USER_AVAILABILITY_SIGNAL`.
+  - **M12-R1 CANONICAL VERDICT**: `M12_V0_EXPLICIT_LAB_PASS`.
+- **WHY**: A sound integration spine must guarantee physical read integrity, truthful eligibility accounting, and fail-closed configurations before offline development is frozen.
+- **ALTERNATIVES_REJECTED**:
+  - Permitting double physical reads in `evaluate_read_shadow` (rejected: creates TOCTOU divergence window).
+  - Counting zero-savings T02 candidates as eligible (rejected: inflates capability claims).
+  - Permitting unvalidated `V0Config` objects (rejected: permits contradictory configuration states).
+  - Claiming zero persistent metadata in discovery ledgers (rejected: candidate paths and scores are persisted when enabled).
+- **REVERSIBILITY**: High. Exact git fast-forward preserves linear history.
