@@ -127,6 +127,14 @@ commands, session strings or inline facts. DO_NOT_PERSIST bypasses disk logging.
 Log failure returns RAW with in-memory failure audit. A crash before return can
 prevent any audit delivery; persistent logging is not an unconditional invariant.
 
+M13 live-shadow records follow the same payload boundary. They may retain hashed
+session/run/task identifiers, exact byte counts, tool-family counts and normalized
+repository-relative paths. They cannot retain raw prompts/messages, command text,
+authorization data, environment secrets, or raw file/tool content. Every token
+field carries provenance; `UNAVAILABLE` is distinct from an estimate, and exact
+and estimated totals are never combined. Shadow telemetry has no authority to
+change runtime behavior, enable T02, suppress reads or inject discovery context.
+
 ## Unapproved proposals
 
 I17 adaptive transform deprioritization and I18 batch limits mentioned in M01 were

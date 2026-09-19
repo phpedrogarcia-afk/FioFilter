@@ -153,3 +153,23 @@ reduction; no such transport integration has been implemented or measured.
 and logging. Actual model tokens, turns, corrective retrieval and RAW recovery
 counts are optional externally supplied metrics; None means unknown, not zero.
 No automatic predictive economics or whole-mission savings are claimed.
+
+## M13 Codex Web post-delivery shadow
+
+`CodexWebShadowEventAdapter` is outside the execution path. A caller may submit
+sanitized metadata only after Codex has already received the RAW tool output.
+The adapter reuses the M08 historical/read-receipt evaluator, M11 discovery
+shadow and M04 T02 evaluator without broadening any capability's authority.
+
+The current runtime has no repository-consumable event subscription. Therefore
+the adapter is an explicit observation bridge, not a hook, proxy or execution
+intermediary. Passive reads establish at most F1 delivery identity; they are not
+relabeled direct-execution F4. T02 is evaluated only when structural producer,
+exit, truncation and stream evidence is supplied; otherwise its metadata gate
+remains closed. Discovery requires exact structured task text.
+
+`FIO_EFFICIENCY_FEED_V1` persists only hashed identities, counts, explicit token
+measurement qualities, repository-relative paths and outcome classes. It has no
+fields for prompts, messages, command text, authorization data or file/tool
+contents. Its aggregate keeps exact and estimated token classes separate and
+cannot activate an optimization.

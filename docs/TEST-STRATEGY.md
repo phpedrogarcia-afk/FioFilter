@@ -78,6 +78,13 @@ decoder tampering, every unauthorized grammar, producer/exit/truncation gates,
 no-expansion, registry-without-routing and deterministic generated valid/ambiguous
 cases. All fixtures are synthetic and inert.
 
+M13 adds `test_efficiency_feed.py` and `test_codex_web_shadow.py`: required token
+provenance and unavailable values, deterministic serialization, exact/estimated
+aggregate separation, payload-field rejection, repository-relative path policy,
+shadow-only configuration, runtime census privacy, post-delivery passivity,
+cross-session receipt isolation, F1-not-F4 reread accounting, T02 metadata gates,
+RAW object identity, and absence of prompt/content bytes from the feed.
+
 These constitute **VERIFIED IN CURRENT TEST CORPUS**, not exhaustive semantic
 proof. See `M02-AUDIT.md` for scoped guarantee classifications and measured results.
 

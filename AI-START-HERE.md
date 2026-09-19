@@ -1,9 +1,10 @@
 # FioFilter orientation
 
-V0: an implemented Python evidence engine and deterministic transform laboratory.
+V0: an implemented Python evidence engine, deterministic transform laboratory and
+passive post-delivery Codex Web shadow observer.
 M01 created code, M02 hardened it, M03 validated the corpus method, and M04
 implements one lossless rg grouping transform behind a producer-metadata gate.
-No Codex integration, MCP, hooks, proxy, GUI, LLM or automatic learning exists.
+No Codex interception, MCP, hooks, proxy, GUI, LLM or automatic learning exists.
 
 ## Start here
 
@@ -32,6 +33,8 @@ No Codex integration, MCP, hooks, proxy, GUI, LLM or automatic learning exists.
 - A separate M03 search-corpus laboratory that fingerprints the local source and
   characterizes two narrow ripgrep grammars with byte-exact reconstruction.
 - Synthetic tests and minimal Windows/Linux CI. See `docs/M02-AUDIT.md` for evidence.
+- `FIO_EFFICIENCY_FEED_V1`: payload-free live-shadow records and longitudinal
+  aggregation with token measurement quality on every token field.
 
 ## What does not exist
 
@@ -77,3 +80,12 @@ FioFilter V0 integrates proven offline components behind one explicit local labo
 - Project Status: `V0_EXPLICIT_LAB_COMPLETE`
 - Discovery & Reexposure Lanes: `READY_FOR_LIVE_CODEX_SHADOW`
 - Default behavior remains strict RAW-first; no automatic hooks, proxies, MCP daemons, or read suppression exist.
+
+## Codex Web Live Shadow Status (M13)
+
+`fiofilter.codex_web_shadow` accepts explicitly supplied events only after RAW
+delivery and never returns a replacement. The current Codex Web runtime exposes
+no repository-consumable passive event stream and no exact provider token usage,
+so live evidence is necessarily partial and post-observation. See
+`docs/M13-CODEX-WEB-LIVE-SHADOW.md`. Telemetry is evidence, never optimization
+authority; all active behavior remains disabled.

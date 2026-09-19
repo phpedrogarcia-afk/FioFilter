@@ -1086,3 +1086,50 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   - Permitting unvalidated `V0Config` objects (rejected: permits contradictory configuration states).
   - Claiming zero persistent metadata in discovery ledgers (rejected: candidate paths and scores are persisted when enabled).
 - **REVERSIBILITY**: High. Exact git fast-forward preserves linear history.
+
+---
+
+## M13-D001 — Codex Web Post-Delivery Shadow and Efficiency Feed V1
+
+- **QUESTION**: Has FioFilter crossed from offline laboratory proof to real Codex
+  shadow observation with enough evidence to select, but not activate, a first
+  Behavioral A/B candidate?
+- **EVIDENCE**:
+  - The current Codex Web environment exposes exact structured session/thread and
+    bootstrap-attempt identifiers through named environment fields, but M13
+    persists only the session digest. Bootstrap identity is not treated as a
+    task/run ID.
+  - No repository-consumable passive current-run event/rollout stream was found.
+    The task has no current row/rollout in the inspected local Codex stores.
+  - Exact provider/runtime input, output, cached-input and reasoning-token counts,
+    model identity and context-window metadata are unavailable.
+  - One `REAL_CODEX_PARTIAL_SESSION` post-delivery observation contains two
+    genuine 20,915-byte full-file reads. The repeat has F1 byte identity and an
+    economic reference candidate of 20,773 hypothetical bytes; F4 events are 0.
+  - Discovery did not run because task text was exact unstructured rather than a
+    supported structured input. T02 has no admissible live event because stream
+    and truncation evidence are not exposed to the adapter.
+  - `FIO_EFFICIENCY_FEED_V1` carries explicit token provenance, deterministic
+    payload-free serialization and quality-separated aggregation.
+- **DECISION**:
+  - Authorize only the post-delivery `CodexWebShadowEventAdapter` and Efficiency
+    Feed v1 evidence contract.
+  - Record `PASSIVE_CODEX_EVENT_SURFACE=UNAVAILABLE`,
+    `TOKEN_USAGE_EXACT=UNAVAILABLE`, and `ENGINE_METADATA_GATE_REMAINS`.
+  - Select `READ_RECEIPT_REFERENCE` for design of the first narrow Behavioral A/B
+    experiment because it is the only mechanism observed in the real partial
+    denominator. Do not activate the treatment.
+  - Keep offline V0 frozen and all telemetry non-authoritative.
+- **WHY**: The partial live observation establishes that the adapter can measure
+  a real reexposure candidate without changing Codex behavior. It does not justify
+  a general live-validation claim, but it is sufficient to choose the lowest-risk
+  next hypothesis instead of continuing open-ended offline development.
+- **ALTERNATIVES_REJECTED**:
+  - Scraping the Codex UI/DOM/OCR for token usage (unsupported and brittle).
+  - Treating approximate protocol token counts or bytes/4 as actual model usage.
+  - Calling an unstructured prompt a structured Discovery input.
+  - Guessing stream/truncation evidence from free-form shell command text for T02.
+  - Activating READREF from one partial session or allowing telemetry to tune an
+    optimization autonomously.
+- **REVERSIBILITY**: High. Both modules are additive and outside the runtime path;
+  deleting them removes the observer/feed without changing engine behavior.

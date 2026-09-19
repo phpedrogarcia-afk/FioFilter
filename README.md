@@ -1,12 +1,13 @@
 # FioFilter
 
-**Evidence-aware context reduction for coding agents. V0 laboratory; no integration or production-readiness claim.**
+**Evidence-aware context reduction for coding agents. V0 live-shadow observer; no active integration or production-readiness claim.**
 
 > AGGRESSIVE AT THE EXPLORATION BOUNDARY.
 > RIGOROUS AT THE EVIDENCE BOUNDARY.
 
-The implemented surface is a Python API that accepts already captured bytes.
-It does not intercept Codex, run shell commands, install hooks, or call a model.
+The implemented surface is a Python API that accepts already captured bytes and
+an M13 post-delivery Codex Web observation adapter. It does not intercept Codex,
+run shell commands, install hooks, change outputs, or call a model.
 M02 hardened the engine. M03 added and independently validated an offline corpus
 method. M04 implements one lossless grouping transform for the exact validated
 `RG_STANDARD_PATH_LINE_TEXT` grammar. Automatic engine routing remains disabled
@@ -84,6 +85,11 @@ local estimate, never a billed/model token count. Actual model tokens, turns,
 corrective retrievals and recovery counts are separately supplied observations;
 `None` means unmeasured. No whole-mission savings have been measured for FioFilter.
 
+M13 adds `FIO_EFFICIENCY_FEED_V1`. Exact token fields stay explicitly
+`UNAVAILABLE` when Codex Web does not expose provider/runtime accounting; the
+feed never promotes bytes/4 into actual usage. It stores hashes, counts and
+repository-relative paths, never raw prompts, messages or file/tool contents.
+
 M01 documented FioOS P3/P11/P13/P14 as historical workload evidence. That evidence
 outranks donor marketing for the workload, but its source corpus is not bundled
 and this repository does not independently reproduce those experiments. The
@@ -119,9 +125,10 @@ but absence alone does not establish the physical relationship. The M03 local
 - [M03-R3 clean-search corpus specification](docs/M03-R3-CLEAN-SEARCH-CORPUS.md)
 - [M03-R4 real search validation](docs/M03-R4-REAL-SEARCH-VALIDATION.md)
 - [M04 lossless rg grouping contract](docs/M04-RG-STANDARD-LOSSLESS-GROUPING.md)
+- [M13 Codex Web live-shadow contract](docs/M13-CODEX-WEB-LIVE-SHADOW.md)
 - `fiofilter/profiles/*.py`: sole operational policy source; YAML duplicates removed
 - `tests/`: synthetic regressions; `tests/corpus/`: executable schema and review protocol
 
 [GitHub](https://github.com/phpedrogarcia-afk/FioFilter) is the handoff surface for
-Codex Web and local Antigravity. M04 stops before automatic routing, local real
-replay of the concrete representation, shadow/A-B measurement or M05.
+Codex Web and local Antigravity. M13 remains shadow-only: no read replacement,
+automatic context selection, automatic T02, proxy, MCP or behavioral A/B treatment.
