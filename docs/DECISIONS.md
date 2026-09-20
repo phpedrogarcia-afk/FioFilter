@@ -1133,3 +1133,40 @@ current runtime behavior; they do not retroactively change what M01 implemented.
     optimization autonomously.
 - **REVERSIBILITY**: High. Both modules are additive and outside the runtime path;
   deleting them removes the observer/feed without changing engine behavior.
+
+---
+
+## M14-D001 — Explicit Read Receipt Behavioral A/B laboratory
+
+- **QUESTION**: Can an exact repeated direct file read be replaced experimentally
+  by a recoverable READREF without assuming that byte identity proves behavioral
+  equivalence?
+- **EVIDENCE**:
+  - M13 observed one `REAL_CODEX_PARTIAL_SESSION` with one 20,915-byte F1 repeat,
+    but no F4 direct event, exact model identity or provider token accounting.
+  - M07/M08/M12 already establish single-buffer direct F4 evaluation, view/source
+    identity, SHA-256 checks, no-expansion references and session-scoped receipts.
+  - M14 adds an isolated control/treatment laboratory, exact recovery check,
+    ephemeral in-memory receipt buffers, a kill switch and net accounting that
+    subtracts recovery and additional treatment context.
+- **DECISION**:
+  - Keep normal runtime entirely RAW and require explicit construction of
+    `ReadReceiptABHarness` for any experiment.
+  - Control always returns RAW. Treatment can emit READREF only after direct F4,
+    explicit `NON_SENSITIVE` caller assessment, an economic reference and exact
+    same-session recovery.
+  - Close and erase receipts at session end; forbid cross-session references.
+  - Freeze the task/evaluator/pair protocol before behavioral observations.
+  - Because this Codex Web environment cannot inject an explicit treatment into
+    independent fresh contexts, publish a pair execution kit and make no
+    behavioral or savings claim from the local harness.
+- **WHY**: Recovery is necessary for an experiment but does not establish model
+  salience, task correctness, operational recovery burden or net mission value.
+- **ALTERNATIVES_REJECTED**:
+  - Activating READREF in normal FioFilter from F1 or F4 alone.
+  - Persisting raw receipt content across process/session boundaries.
+  - Treating detector no-match as permission to retain an experiment buffer.
+  - Counting gross reference bytes as net savings or bytes/4 as real tokens.
+  - Simulating multiple fresh Codex contexts inside the current task.
+- **REVERSIBILITY**: High. The module is additive, in-memory and unreferenced by
+  normal runtime paths; removal has no effect on existing shadow behavior.
