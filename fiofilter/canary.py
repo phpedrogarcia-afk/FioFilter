@@ -18,6 +18,7 @@ import sys
 import threading
 import time
 import uuid
+from collections import deque
 from typing import Any, Callable, Dict, Mapping, Optional, Sequence
 
 from fiofilter.efficiency_feed import hash_private_identifier
@@ -37,7 +38,16 @@ DYNAMIC_TOOL_API = "EXPERIMENTAL"
 PRODUCTION_INTEGRATION = "NO"
 MAX_READREF_PER_SESSION = 3
 RECOVERY_TRIGGERED_SESSION_FALLBACK = True
-RECORD_SCHEMA = "FIO_READREF_CANARY_SESSION_V1"
+RECORD_SCHEMA = "FIO_READREF_CANARY_SESSION_V2"
+ANOMALY_CLASSES = (
+    "BEHAVIORAL_CONCERN", "TASK_QUALITY_CONCERN", "SAFETY_CONCERN",
+    "PROTOCOL_CONCERN", "OTHER",
+)
+STRUCTURAL_TRACE_LIMIT = 64
+_STRUCTURAL_EVENTS = {
+    "READ_RAW", "READREF_EMITTED", "RECOVERY_REQUESTED", "RECOVERY_SUCCEEDED",
+    "RAW_FALLBACK", "ANOMALY_REPORTED", "ANOMALY_DETECTED", "INTERRUPT_SENT",
+}
 _STOP_REASONS = {
     "RECOVERY_TRIGGERED", "MAX_READREF_REACHED",
     "RECOVERY_INTEGRITY_ERROR", "PROTOCOL_ANOMALY", "REPORTED_ANOMALY",
@@ -94,6 +104,19 @@ class CanarySession:
         self.additional_context_bytes = additional_context_bytes
         self.raw_only_reason: Optional[str] = None
         self._issued_references: set[str] = set()
+        self._phase = "BEFORE_READ"
+        self._successful_recoveries = 0
+        self._anomaly: Optional[Dict[str, Any]] = None
+        self._structural_trace: deque[str] = deque(maxlen=STRUCTURAL_TRACE_LIMIT)
+        self._trace_dropped = 0
+
+    def _trace_event(self, event: str) -> None:
+        # Enum-only, payload-free tail. Diagnostic loss is explicitly counted.
+        if event not in _STRUCTURAL_EVENTS:
+            raise ValueError("unknown structural event")
+        if len(self._structural_trace) == STRUCTURAL_TRACE_LIMIT:
+            self._trace_dropped += 1
+        self._structural_trace.append(event)
 
     @property
     def state(self) -> str:
@@ -122,9 +145,33 @@ class CanarySession:
             and not self.anomaly_stopped
         )
 
-    def stop(self, reason: str) -> None:
+    def stop(self, reason: str, *, anomaly_class: Optional[str] = None,
+             harness_detected: bool = False) -> None:
         if reason not in _STOP_REASONS:
             raise ValueError("unknown canary stop reason")
+        # Only the client's validated model-report branch supplies a class.
+        # No phase, source, detail or violation claim comes from model arguments.
+        if reason == "REPORTED_ANOMALY" and anomaly_class not in ANOMALY_CLASSES:
+            raise ValueError("model anomaly requires a bounded class")
+        if reason != "REPORTED_ANOMALY" and anomaly_class is not None:
+            raise ValueError("machine anomaly class is derived from its gate")
+        if reason not in _NORMAL_RAW_ONLY_REASONS and self._anomaly is None:
+            model_report = reason == "REPORTED_ANOMALY"
+            self._anomaly = {
+                "anomaly_kind": "MODEL_REPORTED_ANOMALY" if model_report else "MACHINE_DETECTED_ANOMALY",
+                "anomaly_source": "MODEL_REPORTED" if model_report else (
+                    "HARNESS_DETECTED" if harness_detected else "CLIENT_DETECTED"
+                ),
+                "anomaly_class": anomaly_class if model_report else (
+                    "SAFETY_CONCERN" if reason in {
+                        "RECOVERY_INTEGRITY_ERROR", "DESIGNATED_READ_BYPASS", "NON_UTF8_DELIVERY"
+                    } else "PROTOCOL_CONCERN"
+                ),
+                "anomaly_phase": self._phase,
+                "abort_after_readref": self.readref_emissions > 0,
+                "abort_after_recovery": self._successful_recoveries > 0,
+            }
+            self._trace_event("ANOMALY_REPORTED" if model_report else "ANOMALY_DETECTED")
         if self.raw_only_reason is None or (
             self.raw_only_reason in _NORMAL_RAW_ONLY_REASONS
             and reason not in _NORMAL_RAW_ONLY_REASONS
@@ -164,15 +211,22 @@ class CanarySession:
             self.reference_bytes += result.reference_bytes
             assert result.reference_text is not None
             self._issued_references.add(result.reference_text)
+            self._phase = "AFTER_READREF"
+            self._trace_event("READREF_EMITTED")
             if self.readref_emissions == MAX_READREF_PER_SESSION:
                 self.stop("MAX_READREF_REACHED")
-        elif self.read_count > 1:
-            self.raw_fallbacks += 1
+        else:
+            self._phase = "RAW_ONLY" if self.raw_only_reason else "AFTER_RAW"
+            self._trace_event("READ_RAW")
+            if self.read_count > 1:
+                self.raw_fallbacks += 1
+                self._trace_event("RAW_FALLBACK")
         return result
 
     def expand(self, reference: str) -> bytes:
         # Even an invalid first request permanently disables later references.
         self.recovery_requests += 1
+        self._trace_event("RECOVERY_REQUESTED")
         self.stop("RECOVERY_TRIGGERED")
         if reference not in self._issued_references:
             self.stop("RECOVERY_INTEGRITY_ERROR")
@@ -180,9 +234,12 @@ class CanarySession:
         try:
             recovered = self.harness.expand(reference)
         except RecoveryError as exc:
-            self.stop("RECOVERY_INTEGRITY_ERROR")
+            self.stop("RECOVERY_INTEGRITY_ERROR", harness_detected=True)
             raise CanaryStopError("READREF_RECOVERY_INTEGRITY_ERROR") from exc
         self.recovery_bytes += len(recovered)
+        self._successful_recoveries += 1
+        self._phase = "AFTER_RECOVERY"
+        self._trace_event("RECOVERY_SUCCEEDED")
         return recovered
 
     def close(self) -> None:
@@ -213,6 +270,17 @@ class CanarySession:
             "git_head": git_head,
             "canary_state": self.state,
             "raw_only_reason": self.raw_only_reason,
+            "safety_gate_triggered": self._anomaly is not None,
+            # Existing detectors stop/reject; none proves a delivered safety
+            # violation or READREF-caused behavioral regression.
+            "confirmed_safety_violation": False,
+            **(self._anomaly or {
+                "anomaly_kind": None, "anomaly_source": None,
+                "anomaly_class": None, "anomaly_phase": None,
+                "abort_after_readref": False, "abort_after_recovery": False,
+            }),
+            "structural_event_trace": list(self._structural_trace),
+            "structural_event_trace_dropped": self._trace_dropped,
             "eligible_rereads": self.eligible_rereads,
             "readref_emissions": self.readref_emissions,
             "recovery_requests": self.recovery_requests,
@@ -253,7 +321,11 @@ def dynamic_tools() -> list[Dict[str, Any]]:
         {
             "type": "function", "name": "fio_canary_abort",
             "description": "Report a behavioral or safety anomaly and stop this canary task.",
-            "inputSchema": empty,
+            "inputSchema": {
+                "type": "object", "additionalProperties": False,
+                "properties": {"anomaly_class": {"type": "string", "enum": list(ANOMALY_CLASSES)}},
+                "required": ["anomaly_class"],
+            },
         },
     ]
 
@@ -266,7 +338,9 @@ def developer_instructions(source_relative: str) -> str:
         "reread. Do not use shell, search, git object inspection, or another tool "
         "to read its content. If a READREF does not contain enough detail, call "
         "fio_canary_expand with that exact reference. Do not synthesize one. "
-        "If you notice a behavioral or safety anomaly, call fio_canary_abort. "
+        "If you notice an anomaly, call fio_canary_abort with anomaly_class set "
+        "to BEHAVIORAL_CONCERN, TASK_QUALITY_CONCERN, SAFETY_CONCERN, "
+        "PROTOCOL_CONCERN or OTHER. Supply no free-text description. "
         "Other task work remains under the normal workspace sandbox."
     )
 
@@ -523,6 +597,7 @@ class _CanaryTurn:
         self.client.send_request(
             "turn/interrupt", {"threadId": self.thread_id, "turnId": self.turn_id}
         )
+        self.session._trace_event("INTERRUPT_SENT")
 
     def _tool_response(self, request_id: Any, success: bool, text: str) -> None:
         self.client.send({
@@ -549,8 +624,12 @@ class _CanaryTurn:
                 delivered = self.session.read().payload.decode("utf-8")
             elif tool == "fio_canary_expand" and set(args) == {"reference"} and isinstance(args["reference"], str):
                 delivered = self.session.expand(args["reference"]).decode("utf-8")
-            elif tool == "fio_canary_abort" and not args:
-                self.session.stop("REPORTED_ANOMALY")
+            elif (
+                tool == "fio_canary_abort" and set(args) == {"anomaly_class"}
+                and isinstance(args["anomaly_class"], str)
+                and args["anomaly_class"] in ANOMALY_CLASSES
+            ):
+                self.session.stop("REPORTED_ANOMALY", anomaly_class=args["anomaly_class"])
                 self._tool_response(request_id, True, "CANARY_STOPPED_RAW_ONLY")
                 self._interrupt()
                 return

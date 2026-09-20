@@ -1325,3 +1325,30 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   rate-limit movement, or the shadow candidate's byte difference as measured
   active READREF savings; rerunning to manufacture a reread.
 - **REVERSIBILITY**: High. No normal-runtime or canary activation state changed.
+
+---
+
+## M15-D1-D001 — Distinguish a stop report from a proven safety violation
+
+- **QUESTION**: Can future canary stops preserve diagnostic class, provenance
+  and phase without retaining model/source payloads or relaxing any stop gate?
+- **EVIDENCE**: C2's supplied handoff reports one READREF, one recovery,
+  -1,318 net visible bytes and an abort after recovery. V1 retained only
+  `REPORTED_ANOMALY`; the reason detail is unavailable. No specific safety
+  violation or READREF-caused regression was proven. The base passed 571 tests;
+  24 new diagnostic regression cases failed on the old implementation.
+- **DECISION**: Add a required bounded abort enum, client-derived first-stop
+  phase/provenance, a 64-event payload-free trace and V2 session records.
+  Preserve `raw_only_reason`, all existing stop/recovery rules and V1 historical
+  records. Keep `ACTIVE_CANARY=PAUSED_PENDING_DIAGNOSTIC_HARDENING`. See
+  `docs/M15-D1-CANARY-DIAGNOSTIC-HARDENING.md` for exact semantics and the preserved
+  `M15_C2_FAIL_SAFETY` classification with `CONFIRMED_SAFETY_VIOLATION=NO`.
+- **WHY**: A model concern must stop the gate immediately, but does not prove
+  the alleged cause. Bounded structural diagnostics permit later distinction
+  without logging private content or interpreting an opaque historical report.
+- **ALTERNATIVES_REJECTED**: Free-form anomaly text; model-supplied phase or
+  provenance; calling every safety-gate stop a proven safety violation;
+  reinterpreting C1/C2; rerunning C2 or relaxing recovery to manufacture success.
+- **REVERSIBILITY**: High. Diagnostics are additive to new records and do not
+  integrate with normal runtime, Fio Handoff or active authorization. Consumers
+  can distinguish V1 and V2 explicitly; legacy records remain unchanged.

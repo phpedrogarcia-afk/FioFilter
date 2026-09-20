@@ -4,6 +4,7 @@
 
 ```text
 CANARY_DEFAULT=OFF
+ACTIVE_CANARY=PAUSED_PENDING_DIAGNOSTIC_HARDENING
 APP_SERVER_TRANSPORT=STDIO
 DYNAMIC_TOOL_API=EXPERIMENTAL
 PRODUCTION_INTEGRATION=NO
@@ -90,7 +91,7 @@ READREF-causal savings. If `thread/tokenUsage/updated` arrives, only numeric
 per-thread totals are retained with App Server runtime provenance. No token
 budget is introduced to obtain telemetry.
 
-The strict `FIO_READREF_CANARY_SESSION_V1` record reuses the Efficiency Feed's
+New records use `FIO_READREF_CANARY_SESSION_V2`, which reuses the Efficiency Feed's
 private-identifier hashing but is separate from the shadow-only
 `FIO_EFFICIENCY_FEED_V1` schema. It contains session hash, repository ID and
 commit, read/reference/recovery/fallback counts, byte economics, available tool
@@ -99,6 +100,24 @@ contains no prompt, final model text, raw receipt, credential, command text or
 absolute private path. A record is printed at the end; optional `--record-out`
 writes the same JSON to a new, no-clobber path outside the repository. No
 record file is written by default.
+
+## D1 diagnostic hardening
+
+`fio_canary_abort` now requires exactly one `anomaly_class` enum:
+`BEHAVIORAL_CONCERN`, `TASK_QUALITY_CONCERN`, `SAFETY_CONCERN`,
+`PROTOCOL_CONCERN`, or `OTHER`. Free text and additional properties are rejected
+as protocol anomalies and still stop/interrupt the canary. The client derives
+provenance and phase; neither is a model argument. A model report triggers the
+safety gate but does not prove a safety violation.
+
+V2 preserves `raw_only_reason` and adds the first anomaly's source, class, phase,
+abort-after-reference/recovery flags and a bounded, payload-free structural
+trace. The complete [D1 contract](M15-D1-CANARY-DIAGNOSTIC-HARDENING.md) defines
+the fields, truncation semantics, C2's preserved negative result and limitations.
+Existing V1 records and C1 evidence are historical and are not migrated or
+reinterpreted. D1 runs deterministic tests only; no active task is authorized by
+this schema change. The pause above is the mission's operational status, not a
+new CLI switch or a change to the existing opt-in/delivery/recovery policy.
 
 ## Validation limit
 
