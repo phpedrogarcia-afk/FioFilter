@@ -1258,3 +1258,70 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   - Running a fabricated canary workload in this implementation mission.
 - **REVERSIBILITY**: High. The client is invoked explicitly, starts one
   ephemeral task-local process, and is unused by normal runtime paths.
+
+---
+
+## M15-C1-D001 — Instruction reexposure contract is a shadow-only, critical-inline foundation
+
+- **QUESTION**: What is the smallest deterministic foundation that can formalize
+  repeated mission instructions without mistaking a recoverable reference for
+  authority or behavioural safety to hide them?
+- **EVIDENCE**:
+  - M05-D002 and M07-D001 distinguish exact byte identity/freshness from safe
+    reference replacement and keep behavioural equivalence `UNKNOWN`.
+  - M14/M15 establish exact, same-session READREF recovery, recovery-charged
+    economics, and RAW-only fallback, while preserving that a small behavioural
+    corpus is not global activation authority.
+  - The existing `ReexposureShadowEvaluator` and `ReadReceiptEvaluator` are
+    shadow-first and retain active delivery authorization as false.
+  - The bounded CCA donor autopsy records that `raw_ref` recovered all results
+    while only 96/137 designated critical facts remained inline; recovery alone
+    was therefore rejected as insufficient.
+- **DECISION**:
+  - Formalize `INSTRUCTION_REEXPOSURE_WASTE` as a first-class, unmeasured design
+    waste class.
+  - Add the isolated `M15_MISSION_CONTEXT_CONTRACT_V1` foundation:
+    `FOUNDATION RAW ONCE -> CANONICALIZE -> REFERENCE -> DELTA -> INLINE
+    CRITICAL`.
+  - Evaluate only `INLINE_CRITICAL`, `REFERENCE_CANONICAL`, `DELTA`, and whole
+    exact `DROP_DUPLICATE`. Every return remains RAW; candidate output is
+    shadow-only with `ACTIVE_DELIVERY_AUTHORIZED=NO` and
+    `BEHAVIORAL_EQUIVALENCE=UNKNOWN`.
+  - Require explicit `NON_SENSITIVE`, valid UTF-8, same-session exact SHA-256
+    recovery, strict no-expansion, and 100% designated inline occurrence
+    preservation. `UNKNOWN => RAW`; no candidate is produced on failure.
+  - Do not attach this module to the M15 canary, normal FioFilter runtime, CLI,
+    hooks, proxy, persistence, or an automatic context optimizer.
+- **WHY**: The contract records the useful structure of a future Mission Context
+  experiment while preserving I4/I5 and the donor scar: recoverability is an
+  integrity property, not salience, authority, or behavioural proof.
+- **ALTERNATIVES_REJECTED**:
+  - Treating a SHA-256 receipt/reference as authority to suppress instructions.
+  - General duplicate-block removal, semantic rewrite, automatic critical-fact
+    extraction, ranking, LLM summarization, or cross-session context storage.
+  - Claiming instruction-token or whole-mission savings before an independent
+    behavioural experiment.
+- **REVERSIBILITY**: High. The module is explicit, in-memory, deterministic,
+  unreferenced by normal delivery paths, and removable without changing existing
+  engine or canary behavior.
+
+---
+
+## M15-C1-D002 — First active canary: useful task, no eligible reread
+
+- **QUESTION**: Did the first explicitly active M15 session produce a useful
+  development result and measured READREF context saving?
+- **EVIDENCE**: `docs/M15-C1-ACTIVE-CANARY-EVIDENCE.md` records the sanitized
+  session metrics, telemetry limits, prompt size, post-run corrections, and
+  validation. The App Server turn completed; eligible rereads and READREF
+  emissions were both zero. Gross avoided bytes were zero and net visible bytes
+  were -1,157 after client context. The corrected task passed 571 tests.
+- **DECISION**: `M15_C1_PASS_NO_ELIGIBLE_REREAD`. The task result is useful within
+  its shadow-only test corpus; active context saving was not observed. Keep the
+  canary default OFF and production/global activation unauthorized.
+- **WHY**: Completion and local quality are distinct from READREF economics.
+  With no eligible reread, this session cannot support a saving claim.
+- **ALTERNATIVES_REJECTED**: Counting turn completion, prompt brevity, account
+  rate-limit movement, or the shadow candidate's byte difference as measured
+  active READREF savings; rerunning to manufacture a reread.
+- **REVERSIBILITY**: High. No normal-runtime or canary activation state changed.

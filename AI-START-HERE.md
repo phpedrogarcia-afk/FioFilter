@@ -96,4 +96,6 @@ authority; M13 itself enabled no active behavior.
 `python -m fiofilter.canary status` reports the default OFF state. M15 adds an
 explicit, task-scoped local App Server client with no normal-runtime activation;
 see [M15-READREF-CONTROLLED-CANARY.md](docs/M15-READREF-CONTROLLED-CANARY.md).
-Its first genuine active task remains M15-C1, separately authorized after review.
+Its first genuine active task, M15-C1, completed without an eligible reread or
+READREF emission; see [M15-C1-ACTIVE-CANARY-EVIDENCE.md](docs/M15-C1-ACTIVE-CANARY-EVIDENCE.md).
+Default OFF and no production/global activation remain unchanged.
