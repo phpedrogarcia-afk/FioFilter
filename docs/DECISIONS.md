@@ -1352,3 +1352,35 @@ current runtime behavior; they do not retroactively change what M01 implemented.
 - **REVERSIBILITY**: High. Diagnostics are additive to new records and do not
   integrate with normal runtime, Fio Handoff or active authorization. Consumers
   can distinguish V1 and V2 explicitly; legacy records remain unchanged.
+
+---
+
+## M15-S1-D001 — Real mission-prompt measurement remains proof-driven and shadow-only
+
+- **QUESTION**: Can the deterministic Mission Context contract measure real
+  instruction reexposure without changing prompt delivery or using an LLM to
+  infer which instructions are semantically redundant?
+- **EVIDENCE**: The S1 surface binds input length/SHA-256 and accepts only explicit
+  non-overlapping byte spans. Canonical spans require tracked artifact path, full
+  artifact hash, valid range and exact range equality; duplicates require an
+  earlier exact source that remains inline. Gaps and failed proofs remain UNKNOWN.
+  The current mission dogfood contained 2,808 bytes: 182 explicitly labeled
+  critical bytes and 2,626 UNKNOWN bytes, with zero proven canonical or duplicate
+  bytes and zero hypothetical reduction. Repository evidence preserves no second
+  recent prompt's original bytes; M15-C1 has only size/hash metadata.
+- **DECISION**: Add `FIO_MISSION_CONTEXT_SHADOW_V1` and its strict payload-free
+  manifest/runner. Preserve exact RAW delivery, critical salience, sensitivity
+  veto, no expansion and `BEHAVIORAL_EQUIVALENCE=UNKNOWN`. Aggregate only two or
+  more real byte-bound samples; exclude synthetic fixtures. Record
+  `M15_S1_PASS_INSUFFICIENT_REAL_SAMPLES`. Keep READREF off and Mission Context
+  active optimization unauthorized.
+- **WHY**: Exact equality can establish structural reference opportunities, but
+  it cannot establish semantic redundancy or model salience. One zero-opportunity
+  sample is useful negative evidence and is insufficient for a general priority.
+- **ALTERNATIVES_REJECTED**: Reconstructing historical prompts from reports or
+  hashes; classifying prose semantically with the executing model; treating a
+  path mention as duplicated artifact content; hiding UNKNOWN bytes; reporting
+  bytes/4, provider tokens, or Plus credits; activating suppression from shadow.
+- **REVERSIBILITY**: High. The analyzer and runner are explicit additive tools,
+  unreferenced by normal runtime/canary paths, and persist no raw prompt. Removing
+  them does not change prompt delivery, Fio Handoff or existing C1/D1 records.

@@ -99,3 +99,9 @@ see [M15-READREF-CONTROLLED-CANARY.md](docs/M15-READREF-CONTROLLED-CANARY.md).
 Its first genuine active task, M15-C1, completed without an eligible reread or
 READREF emission; see [M15-C1-ACTIVE-CANARY-EVIDENCE.md](docs/M15-C1-ACTIVE-CANARY-EVIDENCE.md).
 Default OFF and no production/global activation remain unchanged.
+
+M15-S1 adds an explicit payload-free Mission Context prompt measurement surface;
+it never changes delivery. Its first real dogfood sample found zero byte-exact
+referencable/duplicate reduction, and no second trustworthy original prompt was
+available. See
+[`M15-S1-MISSION-CONTEXT-REAL-SHADOW.md`](docs/M15-S1-MISSION-CONTEXT-REAL-SHADOW.md).

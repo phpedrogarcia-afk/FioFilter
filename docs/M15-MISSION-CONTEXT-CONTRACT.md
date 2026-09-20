@@ -14,6 +14,15 @@ NETWORK=NO
 HOOK_OR_PROXY=NO
 ```
 
+M15-S1 adds a separate explicit real-prompt **measurement** surface without
+changing this delivery contract. See
+[`M15-S1-MISSION-CONTEXT-REAL-SHADOW.md`](M15-S1-MISSION-CONTEXT-REAL-SHADOW.md).
+It partitions exact caller-designated byte spans, proves canonical artifact
+identity and whole duplicate equality mechanically, keeps every unproved byte
+inline, and returns the original mission unchanged. It does not call
+`MissionContextSession.evaluate` as a delivery intermediary and grants no active
+authority.
+
 `INSTRUCTION_REEXPOSURE_WASTE` is the repeated delivery of a previously
 established mission-instruction foundation to the same task session or a later
 mission context. It is a first-class **design waste class**, not a measured
@@ -128,3 +137,8 @@ does not infer critical facts automatically, prove a no-match sensitive scan is
 safe, make a reference authoritative, or authorize hiding any foundation text.
 An active treatment would need a separately authorized behavioural experiment
 with frozen controls and recovery fully charged.
+
+The C1 statement that no census was run remains historical. S1 subsequently ran
+one local current-mission shadow sample: 2,808 raw bytes, 0 provable reduction,
+and 2,626 conservatively UNKNOWN bytes. No preserved historical original prompt
+was available, so no multi-sample aggregate or general prevalence claim exists.
