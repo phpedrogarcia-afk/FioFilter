@@ -1217,3 +1217,44 @@ current runtime behavior; they do not retroactively change what M01 implemented.
     M14 gates.
 - **REVERSIBILITY**: High. This is an evidence and authorization decision only;
   no behavioral implementation or normal-runtime path changes.
+
+---
+
+## M15-D001 — Explicit Codex-local active canary surface, default OFF
+
+- **QUESTION**: What is the smallest local surface that can deliver an M14
+  READREF to a subsequent real Codex task under explicit, controlled opt-in?
+- **EVIDENCE**:
+  - M14-F-D001 authorizes a controlled canary, not production or global
+    activation. E1/E2 demonstrated the local App Server stdio dynamic-tool
+    architecture with independent task contexts.
+  - The official Codex App Server documentation marks dynamic tools
+    experimental. A read-only local `codex-cli 0.154.0` probe found
+    `account/usage/read` and `account/rateLimits/read` available without a
+    model turn. Neither account endpoint identifies causal READREF savings.
+  - `docs/M15-READREF-CONTROLLED-CANARY.md` records the interface, fail-to-RAW
+    rules, exact client-side byte accounting, sanitized record, and validation
+    boundary. No genuine M15 canary task was run in this implementation mission.
+- **DECISION**:
+  - `M15_CANARY_SURFACE_READY_WITH_TELEMETRY_LIMITATIONS`:
+    `CANARY_DEFAULT=OFF`, `PRODUCTION_READY=NO`,
+    `GLOBAL_ACTIVATION_AUTHORIZED=NO`, `M15_C1_RUN=NOT_RUN`.
+  - Provide `python -m fiofilter.canary` as a default-OFF, explicit `run
+    --enable` client, with one designated source and explicit NON_SENSITIVE
+    assessment required for READREF. Normal Codex behavior remains unchanged.
+  - Reuse M14's harness unchanged. Limit to three references per session; the
+    first recovery disables later references, and integrity/protocol/behavioral
+    anomalies stop the canary and leave RAW-only delivery.
+  - Use only local stdio App Server plus experimental client-executed dynamic
+    tools. No MCP, global hook, proxy, daemon, production integration or token
+    budget. Defer the first genuine task to separately reviewed M15-C1.
+- **WHY**: A narrow, observable opt-in path buys the first real active
+  substitution opportunity while preserving M14's authority, recovery and
+  evidence boundaries. Account telemetry improves observation but cannot
+  justify a causal token-savings claim.
+- **ALTERNATIVES_REJECTED**:
+  - Globally intercepting Codex reads or changing normal FioFilter delivery.
+  - Treating a READREF emission or account-level delta as economic success.
+  - Running a fabricated canary workload in this implementation mission.
+- **REVERSIBILITY**: High. The client is invoked explicitly, starts one
+  ephemeral task-local process, and is unused by normal runtime paths.

@@ -4,7 +4,8 @@ V0: an implemented Python evidence engine, deterministic transform laboratory an
 passive post-delivery Codex Web shadow observer.
 M01 created code, M02 hardened it, M03 validated the corpus method, and M04
 implements one lossless rg grouping transform behind a producer-metadata gate.
-No Codex interception, MCP, hooks, proxy, GUI, LLM or automatic learning exists.
+The V0 engine itself has no Codex interception, MCP, hooks, proxy, GUI, LLM or
+automatic learning. M15's separately invoked Codex-local client is below.
 
 ## Start here
 
@@ -88,4 +89,11 @@ delivery and never returns a replacement. The current Codex Web runtime exposes
 no repository-consumable passive event stream and no exact provider token usage,
 so live evidence is necessarily partial and post-observation. See
 `docs/M13-CODEX-WEB-LIVE-SHADOW.md`. Telemetry is evidence, never optimization
-authority; all active behavior remains disabled.
+authority; M13 itself enabled no active behavior.
+
+## Controlled Codex-local canary surface (M15)
+
+`python -m fiofilter.canary status` reports the default OFF state. M15 adds an
+explicit, task-scoped local App Server client with no normal-runtime activation;
+see [M15-READREF-CONTROLLED-CANARY.md](docs/M15-READREF-CONTROLLED-CANARY.md).
+Its first genuine active task remains M15-C1, separately authorized after review.
