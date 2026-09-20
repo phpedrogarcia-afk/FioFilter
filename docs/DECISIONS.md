@@ -1170,3 +1170,50 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   - Simulating multiple fresh Codex contexts inside the current task.
 - **REVERSIBILITY**: High. The module is additive, in-memory and unreferenced by
   normal runtime paths; removal has no effect on existing shadow behavior.
+
+---
+
+## M14-F-D001 — Independent behavioral evidence and controlled-canary decision
+
+- **QUESTION**: Do independent E1/E2 matched pairs justify a controlled
+  READ_RECEIPT_REFERENCE canary without implying production readiness or general
+  activation?
+- **EVIDENCE**:
+  - See `docs/M14-BEHAVIORAL-EVIDENCE.md` for source-artifact SHA-256 values,
+    fixture qualification, per-pair outcomes, negative results, and claim limits.
+  - E1 near and far factual pairs each passed in CONTROL and TREATMENT, saving
+    +5,819 and +5,815 net visible bytes. Its original coding pair failed in
+    both arms and is excluded from behavioral comparison. E1 observed no safety
+    failure; two initial host-protocol-invalid attempts remain excluded scars.
+  - E2 mechanically qualified both fixtures before execution. Single-file V2
+    and debugging pairs each passed in both arms, with -140 and +424 net visible
+    bytes respectively. Single-file V2 required one 588-byte recovery and one
+    extra tool call; debugging required no recovery and one fewer tool call.
+    Neither E2 pair had corrective rereads or a safety failure. The canonical
+    repository remained unchanged during E2.
+  - Across four valid pairs: four CONTROL and four TREATMENT quality passes,
+    zero observed treatment-quality regressions, three net-positive pairs, one
+    net-negative pair, one recovery event, and a descriptive +11,918 net visible
+    bytes. Causal actual-token savings are unavailable.
+- **DECISION**:
+  - `M14_AB_PASS_READ_RECEIPT_CANARY_READY`.
+  - `PRODUCTION_READY=NO`; `GLOBAL_ACTIVATION_AUTHORIZED=NO`;
+    `CANARY_AUTHORIZED=YES`; `CANARY_SCOPE=CONTROLLED_ONLY`.
+  - Supersede the pre-behavioral-evidence canary hold in M14-D001 only. Preserve
+    its implementation, fail-to-RAW gates, ephemeral recovery, and normal-runtime
+    RAW default. Do not merge PR #13 or start M15 by implication.
+- **WHY**: Objective quality was preserved in the four baseline-qualified
+  factual/coding/debugging pairs, no safety failure was observed, and aggregate
+  visible-byte economics were positive. The recovery-driven negative pair proves
+  that individual substitutions can cost more than they save, so the evidence
+  supports only a controlled canary with measured recovery burden.
+- **ALTERNATIVES_REJECTED**:
+  - Counting E1's failed-baseline coding pair as positive or negative READREF
+    behavioral evidence.
+  - Calling the descriptive byte aggregate measured token savings or a
+    production expectation.
+  - Treating the small corpus or absence of observed safety failures as general
+    production readiness, global activation authority, or permission to weaken
+    M14 gates.
+- **REVERSIBILITY**: High. This is an evidence and authorization decision only;
+  no behavioral implementation or normal-runtime path changes.
