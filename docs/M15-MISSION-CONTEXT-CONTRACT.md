@@ -23,6 +23,14 @@ inline, and returns the original mission unchanged. It does not call
 `MissionContextSession.evaluate` as a delivery intermediary and grants no active
 authority.
 
+M15-S2 adds `FIO_MISSION_CONTEXT_MANIFEST_V1`, a compact author-supplied
+provenance envelope for future exact mission bytes. See
+[`M15-S2-MISSION-CONTEXT-MANIFEST.md`](M15-S2-MISSION-CONTEXT-MANIFEST.md).
+It binds the whole mission by size/SHA-256 and identifies only explicit
+`INLINE_CRITICAL`, `DELTA`, or mechanically proven `CANONICAL_REFERENCE` byte
+ranges. Undeclared or failed ranges remain UNKNOWN/inline. Its serialized byte
+size is charged to the shadow economics; it grants no suppression authority.
+
 `INSTRUCTION_REEXPOSURE_WASTE` is the repeated delivery of a previously
 established mission-instruction foundation to the same task session or a later
 mission context. It is a first-class **design waste class**, not a measured
@@ -142,3 +150,9 @@ The C1 statement that no census was run remains historical. S1 subsequently ran
 one local current-mission shadow sample: 2,808 raw bytes, 0 provable reduction,
 and 2,626 conservatively UNKNOWN bytes. No preserved historical original prompt
 was available, so no multi-sample aggregate or general prevalence claim exists.
+
+S2 subsequently dogfooded one exact manifest-bearing mission. The 3,639-byte
+mission had a 223-byte manifest and zero mechanically verified canonical
+reexposure bytes, so its net candidate reduction was -223 bytes. This is a
+schema/provenance measurement and a negative economic result, not a prevalence
+estimate or active optimization result.

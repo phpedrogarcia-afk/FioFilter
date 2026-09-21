@@ -105,3 +105,10 @@ it never changes delivery. Its first real dogfood sample found zero byte-exact
 referencable/duplicate reduction, and no second trustworthy original prompt was
 available. See
 [`M15-S1-MISSION-CONTEXT-REAL-SHADOW.md`](docs/M15-S1-MISSION-CONTEXT-REAL-SHADOW.md).
+
+M15-S2 adds the compact `FIO_MISSION_CONTEXT_MANIFEST_V1` provenance envelope
+for future exact mission bytes. It declares byte ranges as canonical reference,
+inline critical, or delta, mechanically verifies repository references, charges
+the manifest's own bytes, and leaves all undeclared/failed ranges UNKNOWN and
+inline. It remains shadow-only and does not persist prompt bodies. See
+[`M15-S2-MISSION-CONTEXT-MANIFEST.md`](docs/M15-S2-MISSION-CONTEXT-MANIFEST.md).

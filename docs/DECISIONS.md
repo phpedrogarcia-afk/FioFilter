@@ -1384,3 +1384,34 @@ current runtime behavior; they do not retroactively change what M01 implemented.
 - **REVERSIBILITY**: High. The analyzer and runner are explicit additive tools,
   unreferenced by normal runtime/canary paths, and persist no raw prompt. Removing
   them does not change prompt delivery, Fio Handoff or existing C1/D1 records.
+
+---
+
+## M15-S2-D001 — Author provenance is compact, byte-bound, and never suppression authority
+
+- **QUESTION**: Can future real mission prompts carry enough deterministic
+  provenance for trustworthy shadow measurement without storing prompt bodies or
+  paying unmeasured manifest overhead?
+- **EVIDENCE**: `FIO_MISSION_CONTEXT_MANIFEST_V1` binds exact mission size and
+  SHA-256 and permits only three bounded tuple classes: inline critical, delta,
+  and canonical reference. Canonical references reuse the S1 tracked-path,
+  artifact-hash, exact-range and byte-equality proof. All gaps and failures remain
+  UNKNOWN/inline. Canonical serialization is deterministic and its exact bytes
+  are subtracted from proven reexposure. The current 3,639-byte mission used a
+  223-byte manifest, verified zero canonical reexposure bytes, and therefore had
+  -223 net candidate reduction.
+- **DECISION**: Add the compact manifest parser/encoder, conservative adapter,
+  payload-free result record and explicit runner. Preserve exact RAW delivery,
+  `SHADOW_ONLY`, `READREF_CANARY=OFF`, and no active authority. Keep the negative
+  dogfood economics and make no prevalence claim from one sample.
+- **WHY**: Capturing mechanical author intent at the time exact bytes exist avoids
+  later semantic reconstruction. Charging the envelope itself prevents metadata
+  from being presented as free. A valid label is useful provenance, while only a
+  verified artifact identity establishes canonical byte reexposure.
+- **ALTERNATIVES_REJECTED**: Storing whole prompts; free-form semantic claims;
+  path mentions as proof; automatic span discovery; LLM equivalence judgments;
+  hiding DELTA, critical, UNKNOWN or failed-reference bytes; excluding manifest
+  cost; adding an optimizer, rewriter, hook, proxy, daemon or Fio Handoff bridge.
+- **REVERSIBILITY**: High. S2 is an additive explicit shadow tool layered on the
+  S1 verifier. Removing it does not change delivery, runtime routing, canary
+  behavior, READREF state, or persisted prompt content.
