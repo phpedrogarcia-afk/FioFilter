@@ -1415,3 +1415,42 @@ current runtime behavior; they do not retroactively change what M01 implemented.
 - **REVERSIBILITY**: High. S2 is an additive explicit shadow tool layered on the
   S1 verifier. Removing it does not change delivery, runtime routing, canary
   behavior, READREF state, or persisted prompt content.
+
+---
+
+## M16-PD1-D001 — Default onboarding uses progressive disclosure
+
+- **QUESTION**: Can a fresh compliant agent retain every constitutional safety
+  rule while avoiding unconditional reexposure of the complete decision ledger
+  and historical evidence corpus before ordinary mission work?
+- **EVIDENCE**: At main `97041b4426d7c53cd2797b9971dfd772574a4d86`,
+  the explicit bootstrap directives required 11 unique repository documents
+  totaling 189,329 blob bytes, including the 105,049-byte decision ledger. The
+  revised default requires only `AGENTS.md` and `AI-START-HERE.md`, totaling
+  10,094 bytes. The reduction is 179,235 bytes (94.67%). A deterministic A–J
+  routing matrix covers transform, sensitive storage, corpus, discovery, live
+  shadow, READREF, Mission Context, architecture, supersession and documentation
+  tasks. Mechanical tests verify the routes, linked documents and inline safety
+  invariants. No historical document was deleted or rewritten. The exact M16
+  mission dogfood contained 8,454 raw bytes and a 234-byte manifest, with 731
+  inline-critical, 7,180 delta, 543 UNKNOWN and zero verified canonical-reference
+  bytes; its separate net manifest result is -234 bytes.
+- **DECISION**: Make `AGENTS.md` the compact constitutional bootstrap and
+  `AI-START-HERE.md` the current-state/task router. Load domain evidence on
+  demand. Keep `docs/DECISIONS.md` complete and append-only; discover headings
+  with `rg -n '^## '`, then read only relevant sections, supersession links and
+  directly referenced evidence. Record `DECISION_LEDGER_DEFAULT_FULL_READ_AFTER=NO`.
+- **WHY**: Routing reduces default repository-byte exposure without treating an
+  index as evidence or changing authority. Critical rules remain inline before
+  action, while task-specific claims still require their canonical sources. The
+  50% materiality gate is project engineering policy; no provider-token, billing,
+  Plus-quota or behavioral-saving claim is inferred from the 94.67% byte result.
+- **ALTERNATIVES_REJECTED**: Deleting or splitting historical evidence;
+  destructively summarizing the ledger; a database, vector store, embedding
+  index, daemon or semantic router; weakening UNKNOWN/RAW, persistence, Git,
+  testing or authorization rules; counting the negative M16 manifest dogfood as
+  the bootstrap-economy result.
+- **REVERSIBILITY**: High. The full ledger and every historical report remain at
+  their original paths. Reverting the two bootstrap documents restores the prior
+  read policy; no runtime, Mission Context, READREF, persistence or transform
+  behavior changed.

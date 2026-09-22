@@ -1,114 +1,100 @@
-# FioFilter orientation
+# FioFilter current state and task router
 
-V0: an implemented Python evidence engine, deterministic transform laboratory and
-passive post-delivery Codex Web shadow observer.
-M01 created code, M02 hardened it, M03 validated the corpus method, and M04
-implements one lossless rg grouping transform behind a producer-metadata gate.
-The V0 engine itself has no Codex interception, MCP, hooks, proxy, GUI, LLM or
-automatic learning. M15's separately invoked Codex-local client is below.
+This file is the compact orientation after `AGENTS.md`. It is not a substitute
+for task-specific evidence.
 
-## Start here
+```text
+DEFAULT_BOOTSTRAP_DOCUMENTS=AGENTS.md,AI-START-HERE.md
+MISSION_CONTEXT=SHADOW_ONLY
+READREF_CANARY=OFF_PAUSED
+ACTIVE_SUPPRESSION=NO
+PRODUCTION_READY=NO
+FIO_HANDOFF_INTEGRATION=NO
+```
 
-1. Inspect branch, HEAD, origin/main, status, recent commits and `AGENTS.md`.
-2. Read `docs/DECISIONS.md` including M02/M03-R1 supersessions, then the evidence contract.
-3. Run `python -m pytest tests/ -v` before code changes.
-4. Work on a mission branch; publish reviewable state through GitHub.
+## What FioFilter is now
 
-## What exists
+FioFilter V0 is a Python evidence engine and deterministic, explicit laboratory.
+It classifies captured output, preserves protected evidence, stores permitted RAW
+content with integrity checks, and evaluates bounded lossless representations.
+It has no production interception path.
 
-- Twelve evidence classes and deterministic full-input signal detection.
-- Core policy in `fiofilter/profiles/default.py`; Python overlays can only restrict it.
-- Stateless per-call EXPLORE/BUILD/PROVE. NOISE remains eligible in PROVE.
-- Orthogonal `Sensitivity` and `Persistence` enums. Default EPHEMERAL recovery;
-  sensitive results are RAW/DO_NOT_PERSIST without archive or persistent log.
-- Explicit SHA-256 disk store with no-clobber publication, integrity checking and
-  content-only metadata. No index or automatic retention/deletion engine.
-- T01 v2: engine-routed exact consecutive-line folding with a strict decoder.
-- `T02_RG_STANDARD_GROUP_V1`: explicit verified evaluation only; contiguous-run
-  grouping and independent exact decoder, with automatic routing disabled.
-- In-memory audit on every valid byte result; explicit optional JSONL audit.
-- Exact byte metrics, labeled byte-based token estimates, optional externally
-  supplied model tokens/turns/retrieval/recovery observations.
-- Corpus schema v4 with distinct detector screening, heuristic suggestions,
-  independently reviewed oracle provenance and label-scoped replay metrics.
-- A separate M03 search-corpus laboratory that fingerprints the local source and
-  characterizes two narrow ripgrep grammars with byte-exact reconstruction.
-- Synthetic tests and minimal Windows/Linux CI. See `docs/M02-AUDIT.md` for evidence.
-- `FIO_EFFICIENCY_FEED_V1`: payload-free live-shadow records and longitudinal
-  aggregation with token measurement quality on every token field.
+Implemented and testable components include T01 consecutive-line folding,
+explicit `T02_RG_STANDARD_GROUP_V1` evaluation behind producer-metadata gates,
+BM25 discovery experiments, read-reexposure/receipt laboratories, payload-free
+Codex Web shadow telemetry, and the `FIO_EFFICIENCY_FEED_V1` schema. Implemented
+does not mean automatically authorized.
 
-## What does not exist
+M15-S2/R1 is complete. `FIO_MISSION_CONTEXT_MANIFEST_V1` binds exact mission
+bytes to compact author dispositions and repository-verifiable canonical ranges.
+Its manifest is canonical LF across Windows/Linux. Mission Context still only
+measures shadow candidates and never changes delivered prompts.
 
-The legacy T02 template-folding proposal, T03 PASS aggregation, T04 JSON
-minification, T05 delta, batch execution, a Git-bundled original FioOS corpus,
-automatic rg routing, corrective-retrieval prediction and whole-mission A/B
-measurement remain deferred. An API processing already captured
-output cannot recover bytes truncated by its upstream caller.
+## Authority state
 
-## Decisions and current limits
+| State | Current boundary |
+| --- | --- |
+| Active laboratory | Explicit local engine/CLI calls and deterministic tests; RAW-first defaults remain. |
+| Shadow only | Codex Web observer, discovery/reexposure measurement and Mission Context measurement. Observed output is never replaced. |
+| Paused/off | READREF controlled canary. Prior canary evidence does not authorize another run. |
+| Not authorized | Active suppression, automatic context selection, automatic T02, hooks, proxy, MCP daemon, LLM classifier, Fio Handoff bridge, production integration or production-readiness claims. |
 
-Read `docs/ARCHITECTURE.md`, `docs/EVIDENCE-CONTRACT.md`, `docs/TEST-STRATEGY.md`,
-`docs/M02-AUDIT.md`, `docs/M03-CORPUS-REPORT.md`,
-`docs/M03-R2-VALIDATION.md`, `docs/M03-R3-CLEAN-SEARCH-CORPUS.md` and
-`docs/SAFE-AGGRESSIVE-FRONTIER.md`. `docs/DECISIONS.md` preserves historical
-decisions and explicitly supersedes invalid M03 claims. `docs/DONOR-AUTOPSY.md`
-is historical M01 evidence, not a fresh upstream audit or executable specification.
+Always preserve the constitutional invariants in `AGENTS.md`. In particular,
+capability is not authority, UNKNOWN remains conservative, sensitive persistence
+is fail-closed, and recoverability is not permission to hide content.
 
-Detection cannot prove absence of arbitrary secrets/PII. Caller-assessed
-NON_SENSITIVE plus explicit PERSIST is a storage decision, never permission to
-compress protected evidence. Do not describe RAW recovery as guaranteed for
-DO_NOT_PERSIST or after a returned ephemeral reference has been discarded.
+## Task router / deterministic review matrix
 
-Current tests establish behavior in their corpus, not universal classification
-accuracy. Local reduction is not measured whole-mission savings. Future
-aggressive reduction candidates are recorded explicitly; none is authorized by
-its inclusion in that list. M03-R4 authorizes only
-`RG_STANDARD_PATH_LINE_TEXT`. Source A is verified; Source B is historical and
-not currently reproduced. Reported fingerprints differ, while the physical
-relationship remains `UNKNOWN` without Source B bytes.
+Choose the matching row before opening deeper material. Read the listed minimum;
+add another route only when the task actually crosses that domain.
 
-Corpus replay must use source data only as engine input. Never inject oracle
-sensitivity or required facts into the subject under test. Detector no-match is
-not a non-sensitive assessment. Use only `ORACLE:*` metric scopes for reviewed
-claims; `HEURISTIC:*` scopes are diagnostic. Legacy v3 input requires explicit
-`M03_V3_AS_HEURISTIC` demotion.
+| Route | Task class or scenario | Minimum canonical read set |
+| --- | --- | --- |
+| A | Core evidence, transform correctness, RAW/recovery semantics | `docs/EVIDENCE-CONTRACT.md`; the specific transform specification (for T02, `docs/M04-RG-STANDARD-LOSSLESS-GROUPING.md`); affected code/tests. Add `docs/TEST-STRATEGY.md` only for coverage/oracle changes. |
+| B | Persistence, privacy, sensitivity or RAW-store change | Relevant sections of `docs/ARCHITECTURE.md` and `docs/EVIDENCE-CONTRACT.md`; `fiofilter/sensitivity.py`, `fiofilter/raw_store.py` and their tests. Use selected decision sections if changing policy. |
+| C | Corpus, benchmark or evaluation change | `tests/corpus/README.md`; `docs/M03-R3-CLEAN-SEARCH-CORPUS.md`; add `docs/M03-R4-REAL-SEARCH-VALIDATION.md` only for real-search evidence; affected corpus code/tests. Earlier M03 reports are provenance, not default input. |
+| D | Discovery, ranking or search-output change | `docs/M11-DISCOVERY-RUNTIME-SHADOW.md`; add `docs/M10-DISCOVERY-RANKING-REFINEMENT.md` for ranking and `docs/M04-RG-STANDARD-LOSSLESS-GROUPING.md` for T02 representation; affected code/tests. |
+| E | Codex Web live-shadow or Efficiency Feed change | `docs/M13-CODEX-WEB-LIVE-SHADOW.md`; `fiofilter/codex_web_shadow.py`, `fiofilter/efficiency_feed.py` and affected tests. |
+| F | READREF, recovery or local canary change | `docs/M15-READREF-CONTROLLED-CANARY.md` and `docs/M15-D1-CANARY-DIAGNOSTIC-HARDENING.md`; canary/read-receipt code and tests. Add M14 behavioral evidence only for A/B claims. READREF remains paused unless a new mission explicitly authorizes a run. |
+| G | Mission Context or instruction-reexposure change | `docs/M15-MISSION-CONTEXT-CONTRACT.md` and `docs/M15-S2-MISSION-CONTEXT-MANIFEST.md`; mission-context code/tests. Add `docs/M15-S1-MISSION-CONTEXT-REAL-SHADOW.md` only for S1 measurement provenance. |
+| H | Architecture proposal or major new mechanism | `docs/ARCHITECTURE.md`, `docs/EVIDENCE-CONTRACT.md`, `docs/SAFE-AGGRESSIVE-FRONTIER.md`, `docs/TEST-STRATEGY.md`, then relevant decision sections. Inclusion in a frontier is not authorization. |
+| I | Historical decision, contradiction or supersession investigation | Use the decision lookup below; read only matching ledger sections, referenced superseding entries and directly relevant historical evidence. Expand only when the chain requires it. |
+| J | Ordinary documentation-only maintenance | Target document and directly linked canonical sources needed to verify the edit. Check links and factual scope. No ledger or historical corpus read is required by default. |
 
-## V0 Explicit Lab Status (M12)
+The required scenario checks map deterministically as follows: transform change
+→ A; sensitive storage → B; corpus/evaluation → C; READREF canary → F; Mission
+Context → G; architecture proposal → H; supersession question → I; ordinary
+documentation edit → J.
 
-FioFilter V0 integrates proven offline components behind one explicit local laboratory interface:
-- CLI: `python -m fiofilter status`
-- Full reference: [V0-EXPLICIT-LAB.md](docs/V0-EXPLICIT-LAB.md)
-- Project Status: `V0_EXPLICIT_LAB_COMPLETE`
-- Discovery & Reexposure Lanes: `READY_FOR_LIVE_CODEX_SHADOW`
-- Default behavior remains strict RAW-first; no automatic hooks, proxies, MCP daemons, or read suppression exist.
+## Decision ledger lookup
 
-## Codex Web Live Shadow Status (M13)
+`docs/DECISIONS.md` remains the complete append-only historical ledger. It is not
+a default full read. Discover headings cheaply:
 
-`fiofilter.codex_web_shadow` accepts explicitly supplied events only after RAW
-delivery and never returns a replacement. The current Codex Web runtime exposes
-no repository-consumable passive event stream and no exact provider token usage,
-so live evidence is necessarily partial and post-observation. See
-`docs/M13-CODEX-WEB-LIVE-SHADOW.md`. Telemetry is evidence, never optimization
-authority; M13 itself enabled no active behavior.
+```bash
+rg -n '^## ' docs/DECISIONS.md
+```
 
-## Controlled Codex-local canary surface (M15)
+Then locate an exact ID/topic and read only that section plus any explicitly
+referenced predecessor or superseding entry:
 
-`python -m fiofilter.canary status` reports the default OFF state. M15 adds an
-explicit, task-scoped local App Server client with no normal-runtime activation;
-see [M15-READREF-CONTROLLED-CANARY.md](docs/M15-READREF-CONTROLLED-CANARY.md).
-Its first genuine active task, M15-C1, completed without an eligible reread or
-READREF emission; see [M15-C1-ACTIVE-CANARY-EVIDENCE.md](docs/M15-C1-ACTIVE-CANARY-EVIDENCE.md).
-Default OFF and no production/global activation remain unchanged.
+```bash
+rg -n 'M15-S2-D001|supersed' docs/DECISIONS.md
+```
 
-M15-S1 adds an explicit payload-free Mission Context prompt measurement surface;
-it never changes delivery. Its first real dogfood sample found zero byte-exact
-referencable/duplicate reduction, and no second trustworthy original prompt was
-available. See
-[`M15-S1-MISSION-CONTEXT-REAL-SHADOW.md`](docs/M15-S1-MISSION-CONTEXT-REAL-SHADOW.md).
+Use a mission-specific pattern; the example is not a standing requirement to
+read M15. If the relevant chain cannot be established, stop or report UNKNOWN
+rather than silently treating the index as evidence.
 
-M15-S2 adds the compact `FIO_MISSION_CONTEXT_MANIFEST_V1` provenance envelope
-for future exact mission bytes. It declares byte ranges as canonical reference,
-inline critical, or delta, mechanically verifies repository references, charges
-the manifest's own bytes, and leaves all undeclared/failed ranges UNKNOWN and
-inline. It remains shadow-only and does not persist prompt bodies. See
-[`M15-S2-MISSION-CONTEXT-MANIFEST.md`](docs/M15-S2-MISSION-CONTEXT-MANIFEST.md).
+## Ordinary workflow
+
+1. Confirm real Git state and clean/dirty scope.
+2. Select route(s) above and load their minimum evidence.
+3. Run the relevant baseline before executable changes.
+4. Implement only the authorized delta and preserve RAW/fail-closed behavior.
+5. Run relevant tests, the full suite, compileall and `git diff --check`.
+6. Record material decisions without altering prior entries; publish a reviewable
+   branch and verify CI for the exact SHA. Do not merge automatically.
+
+Historical M01–M15 reports remain canonical and recoverable under `docs/`; they
+are loaded through routes C, D, E, F, G or I, not re-exposed to every mission.

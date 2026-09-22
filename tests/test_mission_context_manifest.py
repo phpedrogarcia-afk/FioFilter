@@ -281,3 +281,30 @@ def test_committed_dogfood_manifest_is_compact_and_payload_free() -> None:
     assert b"OBJECTIVE" not in manifest_bytes
     assert b"CRITICAL:" not in manifest_bytes
     assert b"prompt" not in manifest_bytes.lower()
+
+
+def test_m16_dogfood_manifest_is_canonical_and_payload_free() -> None:
+    root = pathlib.Path(__file__).resolve().parents[1]
+    repository_path = "docs/M16-PD1-DOGFOOD-MANIFEST.json"
+    manifest_bytes = (root / repository_path).read_bytes()
+    manifest = parse_manifest(manifest_bytes)
+
+    attributes = subprocess.run(
+        ["git", "-C", str(root), "check-attr", "text", "eol", "--", repository_path],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+
+    assert len(manifest_bytes) == 234
+    assert manifest_bytes.endswith(b"\n")
+    assert b"\r\n" not in manifest_bytes
+    assert attributes == [
+        f"{repository_path}: text: set",
+        f"{repository_path}: eol: lf",
+    ]
+    assert manifest.mission_id == "FIOFILTER-M16-PD1-PROGRESSIVE-DISCLOSURE-BOOTSTRAP"
+    assert manifest.raw_bytes == 8454
+    assert encode_manifest(manifest) == manifest_bytes
+    assert b"INLINE_CRITICAL" not in manifest_bytes
+    assert b"DELTA / OBJECTIVE" not in manifest_bytes
