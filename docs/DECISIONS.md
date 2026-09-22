@@ -1528,3 +1528,50 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   scanner and synthetic regression tests. It does not alter canonical documents,
   route authority, Mission Context, READREF, persistence, active suppression,
   Fio Handoff, production state, or historical evidence.
+
+---
+
+## M18-D001 — Proven-baseline freeze and evidence-triggered expansion
+
+- **QUESTION**: Can the canonical `main` state be made easier to operate and
+  review by stating its actual capability boundaries, correcting current-status
+  drift, and freezing feature expansion until a real bottleneck justifies it?
+- **EVIDENCE**:
+  - At `ed0146ca074a02787a9cf7e0b748dd8f77a92c9f`, the executable V0 config
+    rejects active suppression, automatic context selection, network mode and
+    non-ephemeral V0 persistence. The current test corpus exercises these
+    boundaries, the RAW/evidence contract, progressive-disclosure fallback and
+    fence-aware section parsing.
+  - The current router exposes task-level and bounded section-level discovery
+    without changing canonical documents or delivery. Missing, duplicate,
+    ambiguous or fence-uncertain sections expand to the complete document.
+  - Mission Context and Codex Web observers are shadow-only. T02 remains an
+    explicit, metadata-gated evaluation; normal engine routing is disabled.
+    READREF normal delivery is absent, and the explicit local canary is default
+    OFF/paused after completed D1 diagnostic hardening.
+  - Current canonical `main` has no M17/KR1 report, decision, or JEV
+    implementation. A non-canonical branch is not baseline evidence.
+- **DECISION**:
+  - Publish `docs/M18-STABLE-BASELINE.md` as a status index, not a new source
+    of authority. It classifies the current surface, preserves the historical
+    record, and makes experimental/paused boundaries explicit.
+  - Correct only the stale active-canary wording: D1 hardening is complete, but
+    the canary remains paused and no new run is authorized.
+  - Freeze new feature development. A proposed mechanism may enter active
+    development only when all of the following are documented for that mission:
+    1. a real observed bottleneck exists;
+    2. current mechanisms do not adequately address it;
+    3. the hypothesis is falsifiable;
+    4. a smaller solution has been considered;
+    5. expected value exceeds added complexity; and
+    6. evidence and authority invariants remain intact.
+- **WHY**: Capability, a donor example, an unmerged branch, or repository-byte
+  accounting is not authority for another subsystem. The smallest safe next
+  step is natural dogfooding with observational evidence, not architecture.
+- **ALTERNATIVES_REJECTED**: Context Compiler, Fio Handoff integration, JEV,
+  a new memory/router/vector store, MCP integration, model routing, automatic
+  context injection/suppression, and deleting historical experimental modules
+  without dependency proof.
+- **REVERSIBILITY**: High. This is documentation/status reconciliation only;
+  it changes no runtime delivery, persistence, transform, observer or canary
+  gate. Historical entries remain intact and recoverable.

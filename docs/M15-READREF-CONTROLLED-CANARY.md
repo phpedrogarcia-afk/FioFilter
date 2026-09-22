@@ -4,7 +4,8 @@
 
 ```text
 CANARY_DEFAULT=OFF
-ACTIVE_CANARY=PAUSED_PENDING_DIAGNOSTIC_HARDENING
+ACTIVE_CANARY=PAUSED
+D1_DIAGNOSTIC_HARDENING=COMPLETE
 APP_SERVER_TRANSPORT=STDIO
 DYNAMIC_TOOL_API=EXPERIMENTAL
 PRODUCTION_INTEGRATION=NO
@@ -116,8 +117,10 @@ trace. The complete [D1 contract](M15-D1-CANARY-DIAGNOSTIC-HARDENING.md) defines
 the fields, truncation semantics, C2's preserved negative result and limitations.
 Existing V1 records and C1 evidence are historical and are not migrated or
 reinterpreted. D1 runs deterministic tests only; no active task is authorized by
-this schema change. The pause above is the mission's operational status, not a
-new CLI switch or a change to the existing opt-in/delivery/recovery policy.
+this schema change. The pause above is the current operational status after D1
+hardening, not a new CLI switch or a change to the existing opt-in/delivery/
+recovery policy. Any future canary run requires a separate mission and fresh
+evidence.
 
 ## Validation limit
 

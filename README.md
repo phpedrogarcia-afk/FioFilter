@@ -126,6 +126,7 @@ but absence alone does not establish the physical relationship. The M03 local
 - [M03-R4 real search validation](docs/M03-R4-REAL-SEARCH-VALIDATION.md)
 - [M04 lossless rg grouping contract](docs/M04-RG-STANDARD-LOSSLESS-GROUPING.md)
 - [M13 Codex Web live-shadow contract](docs/M13-CODEX-WEB-LIVE-SHADOW.md)
+- [M18 stable baseline and feature-freeze rule](docs/M18-STABLE-BASELINE.md)
 - `fiofilter/profiles/*.py`: sole operational policy source; YAML duplicates removed
 - `tests/`: synthetic regressions; `tests/corpus/`: executable schema and review protocol
 
