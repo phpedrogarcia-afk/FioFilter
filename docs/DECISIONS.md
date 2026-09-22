@@ -1575,3 +1575,44 @@ current runtime behavior; they do not retroactively change what M01 implemented.
 - **REVERSIBILITY**: High. This is documentation/status reconciliation only;
   it changes no runtime delivery, persistence, transform, observer or canary
   gate. Historical entries remain intact and recoverable.
+
+---
+
+## M19-AUTH1-D001 — Canonical main is guarded by one minimal active ruleset
+
+- **QUESTION**: Can the repository make corruption of canonical `main`
+  materially harder without replacing the proven exact-SHA, fast-forward
+  promotion discipline?
+- **EVIDENCE**:
+  - Before this decision, GitHub reported `main` as unprotected, legacy branch
+    protection absent, and zero repository rulesets. At
+    `193b9bb32a50200ae22840ea2130a0425e9b12c1` (tree
+    `cab7804aea28334bfa2b8afaba5c070750dc82a4`), `Foundation tests` recorded
+    successful GitHub Actions checks named `test (ubuntu-24.04)` and
+    `test (windows-2022)`.
+  - The same exact SHA was observed in successful candidate-branch, pull
+    request, and `main` workflow runs. GitHub's ruleset API specifies that a
+    required-status-check rule accepts commits first pushed to another ref
+    where those checks pass; this preserves the exact tested commit for a
+    later fast-forward.
+  - GitHub API post-mutation readback reports repository ruleset `23825846`,
+    `FioFilter Canonical Main Guard`, active only for `refs/heads/main`, with
+    no bypass actors.
+- **DECISION**: Enforce exactly one repository ruleset for canonical `main`:
+  `non_fast_forward`, `deletion`, `required_linear_history`, and the two
+  proven GitHub Actions required-status-check contexts. Do not add legacy
+  branch protection, mandatory pull requests, signatures, merge queue, update
+  restrictions, code-owner approval, or bypass actors. Promote only an exact
+  already-tested candidate SHA by independently checking current `main` and
+  using `git merge --ff-only <SHA>` followed by a normal push.
+- **WHY**: The ruleset blocks ordinary force updates, deletion, merge commits,
+  and unchecked ref updates while retaining the tested candidate commit and
+  its linear history. It narrows GitHub authority without adding product
+  runtime, secrets, dependencies, or a second policy surface.
+- **ALTERNATIVES_REJECTED**: Human-discipline-only promotion; overlapping
+  legacy protection; mandatory PRs or merge queue that replace direct exact-SHA
+  fast-forward promotion; required signatures without an established signing
+  workflow; broad owner/admin bypass; and any product-context mechanism.
+- **REVERSIBILITY**: High. Deleting this single ruleset restores the prior
+  remote authority state. No repository runtime, persistence, transform,
+  observer, canary, context-delivery, provider, or dependency behavior changed.

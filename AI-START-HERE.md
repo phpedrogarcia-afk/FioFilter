@@ -139,7 +139,10 @@ rather than silently treating the index as evidence.
 4. Implement only the authorized delta and preserve RAW/fail-closed behavior.
 5. Run relevant tests, the full suite, compileall and `git diff --check`.
 6. Record material decisions without altering prior entries; publish a reviewable
-   branch and verify CI for the exact SHA. Do not merge automatically.
+   branch and verify CI for the exact SHA. Before a canonical `main` promotion,
+   re-check the active remote `FioFilter Canonical Main Guard`, then use only an
+   exact, already-tested `git merge --ff-only <SHA>` promotion. Do not merge
+   automatically or use `gh pr merge` for an exact-SHA promotion.
 
 Historical M01–M15 reports remain canonical and recoverable under `docs/`; they
 are loaded through routes C, D, E, F, G or I, not re-exposed to every mission.
