@@ -59,19 +59,27 @@ def test_router_covers_required_scenarios_without_full_ledger() -> None:
     assert set(rows) == set("ABCDEFGHIJ")
     expected = {
         "A": ("transform correctness", "docs/EVIDENCE-CONTRACT.md"),
-        "B": ("sensitivity", "docs/ARCHITECTURE.md"),
+        "B": ("sensitivity", "SECTION_SET B"),
         "C": ("Corpus", "docs/M03-R3-CLEAN-SEARCH-CORPUS.md"),
         "D": ("Discovery", "docs/M11-DISCOVERY-RUNTIME-SHADOW.md"),
         "E": ("Codex Web", "docs/M13-CODEX-WEB-LIVE-SHADOW.md"),
-        "F": ("READREF", "docs/M15-READREF-CONTROLLED-CANARY.md"),
-        "G": ("Mission Context", "docs/M15-S2-MISSION-CONTEXT-MANIFEST.md"),
-        "H": ("Architecture proposal", "docs/SAFE-AGGRESSIVE-FRONTIER.md"),
+        "F": ("READREF", "SECTION_SET F"),
+        "G": ("Mission Context", "SECTION_SET G"),
+        "H": ("Architecture proposal", "SECTION_SET H"),
         "I": ("supersession", "decision lookup"),
-        "J": ("documentation-only", "No ledger"),
+        "J": ("documentation-only", "FULL_DOCUMENT"),
     }
     for route, fragments in expected.items():
         for fragment in fragments:
             assert fragment in rows[route]
+
+    for routed_path in (
+        "docs/ARCHITECTURE.md",
+        "docs/M15-READREF-CONTROLLED-CANARY.md",
+        "docs/M15-S2-MISSION-CONTEXT-MANIFEST.md",
+        "docs/SAFE-AGGRESSIVE-FRONTIER.md",
+    ):
+        assert routed_path in orientation
 
 
 def test_all_routed_markdown_documents_exist() -> None:

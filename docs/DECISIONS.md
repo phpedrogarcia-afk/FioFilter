@@ -1454,3 +1454,49 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   their original paths. Reverting the two bootstrap documents restores the prior
   read policy; no runtime, Mission Context, READREF, persistence or transform
   behavior changed.
+
+---
+
+## M16-PD2-D001 — Bounded section sets reduce route working sets conservatively
+
+- **QUESTION**: Can the A–J router stop requiring complete canonical documents
+  when stable bounded sections are sufficient, without copying knowledge,
+  weakening evidence access, or turning the router into authority?
+- **EVIDENCE**: The exact PD1 bootstrap was 10,094 bytes. Complete mandatory
+  route documents measured A=7,394, B=17,741, C=17,899, D=9,838, E=9,511,
+  F=14,113, G=13,273, H=28,631, I=0 fixed and J=0 fixed bytes; I/J retain
+  task-dependent evidence. H was therefore the measured heaviest fixed route,
+  with a 38,725-byte bootstrap-plus-route working set. Exact heading-bounded
+  union accounting reduced route documents to B=10,187, F=12,480, G=11,925 and
+  H=19,885 bytes, avoiding respectively 7,554, 1,633, 1,348 and 8,746 canonical
+  context bytes. A, C, D and E remain complete. The more explicit router raises
+  the default bootstrap legitimately to 11,372 bytes; the maximum fixed working
+  set still falls to 31,257 bytes, a 7,468-byte (19.28%) reduction. The exact
+  8,551-byte PD2 mission dogfood used a 227-byte manifest, verified zero canonical
+  reexposure and retained its separate -227-byte net result.
+- **DECISION**: Add deterministic `FULL_DOCUMENT`, `SECTION_SET`, and
+  `OPTIONAL_ON_DEMAND` policies. Select a Markdown section from its exact heading
+  through the byte before the next same/higher-level heading or EOF; union nested
+  or adjacent selections once. Any missing/duplicate heading, invalid UTF-8,
+  contradiction, cross-section dependency, unavailable required path, or widened
+  scope expands conservatively to the complete document or stops when the source
+  is unavailable. Keep A's evidence contract and G's core Mission Context
+  contract complete. Keep H's evidence contract and safe frontier complete while
+  bounding architecture and test-strategy sections. The read-only helper is a
+  measurement/access mechanism, never evidence or authority.
+- **WHY**: Stable source headings preserve the canonical documents as the only
+  truth while avoiding unrelated material in common bounded routes. The design
+  keeps high-risk contracts whole where slicing is not justified, makes fallback
+  explicit, and preserves every historical file. `AVOIDED_CONTEXT_BYTES` is a
+  repository-policy measure, not compression, provider tokens, billing, Plus
+  quota, route prevalence, or behavioral savings; weighted averages remain
+  unauthorized without a measured route-frequency distribution.
+- **ALTERNATIVES_REJECTED**: New summaries of canonical documents; line-number
+  ranges; semantic/LLM classification; embeddings, vector search, database or
+  daemon; forced slicing of every route; silent omission when selection fails;
+  deleting historical evidence; using manifest dogfood economics as route
+  economics; claiming actual token or quota savings.
+- **REVERSIBILITY**: High. Remove the helper/tests and restore the PD1 router to
+  return to whole-document route policy. Canonical documents and all prior ledger
+  bytes remain unchanged; no runtime integration, prompt suppression, READREF,
+  hook, proxy, MCP, daemon, Fio Handoff bridge or production activation changed.

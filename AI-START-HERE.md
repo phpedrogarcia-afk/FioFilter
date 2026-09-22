@@ -45,26 +45,71 @@ is fail-closed, and recoverability is not permission to hide content.
 
 ## Task router / deterministic review matrix
 
-Choose the matching row before opening deeper material. Read the listed minimum;
-add another route only when the task actually crosses that domain.
+Choose a route before opening deeper material. `FULL_DOCUMENT` means the complete
+path; `SECTION_SET` means the exact headings declared below; and
+`OPTIONAL_ON_DEMAND` is outside the initial working set. Affected source/tests are
+task inputs, not documentation-economics bytes.
 
-| Route | Task class or scenario | Minimum canonical read set |
+| Route | Task class or scenario | Initial requirement |
 | --- | --- | --- |
-| A | Core evidence, transform correctness, RAW/recovery semantics | `docs/EVIDENCE-CONTRACT.md`; the specific transform specification (for T02, `docs/M04-RG-STANDARD-LOSSLESS-GROUPING.md`); affected code/tests. Add `docs/TEST-STRATEGY.md` only for coverage/oracle changes. |
-| B | Persistence, privacy, sensitivity or RAW-store change | Relevant sections of `docs/ARCHITECTURE.md` and `docs/EVIDENCE-CONTRACT.md`; `fiofilter/sensitivity.py`, `fiofilter/raw_store.py` and their tests. Use selected decision sections if changing policy. |
-| C | Corpus, benchmark or evaluation change | `tests/corpus/README.md`; `docs/M03-R3-CLEAN-SEARCH-CORPUS.md`; add `docs/M03-R4-REAL-SEARCH-VALIDATION.md` only for real-search evidence; affected corpus code/tests. Earlier M03 reports are provenance, not default input. |
-| D | Discovery, ranking or search-output change | `docs/M11-DISCOVERY-RUNTIME-SHADOW.md`; add `docs/M10-DISCOVERY-RANKING-REFINEMENT.md` for ranking and `docs/M04-RG-STANDARD-LOSSLESS-GROUPING.md` for T02 representation; affected code/tests. |
-| E | Codex Web live-shadow or Efficiency Feed change | `docs/M13-CODEX-WEB-LIVE-SHADOW.md`; `fiofilter/codex_web_shadow.py`, `fiofilter/efficiency_feed.py` and affected tests. |
-| F | READREF, recovery or local canary change | `docs/M15-READREF-CONTROLLED-CANARY.md` and `docs/M15-D1-CANARY-DIAGNOSTIC-HARDENING.md`; canary/read-receipt code and tests. Add M14 behavioral evidence only for A/B claims. READREF remains paused unless a new mission explicitly authorizes a run. |
-| G | Mission Context or instruction-reexposure change | `docs/M15-MISSION-CONTEXT-CONTRACT.md` and `docs/M15-S2-MISSION-CONTEXT-MANIFEST.md`; mission-context code/tests. Add `docs/M15-S1-MISSION-CONTEXT-REAL-SHADOW.md` only for S1 measurement provenance. |
-| H | Architecture proposal or major new mechanism | `docs/ARCHITECTURE.md`, `docs/EVIDENCE-CONTRACT.md`, `docs/SAFE-AGGRESSIVE-FRONTIER.md`, `docs/TEST-STRATEGY.md`, then relevant decision sections. Inclusion in a frontier is not authorization. |
-| I | Historical decision, contradiction or supersession investigation | Use the decision lookup below; read only matching ledger sections, referenced superseding entries and directly relevant historical evidence. Expand only when the chain requires it. |
-| J | Ordinary documentation-only maintenance | Target document and directly linked canonical sources needed to verify the edit. Check links and factual scope. No ledger or historical corpus read is required by default. |
+| A | Core evidence, transform correctness, RAW/recovery | `FULL_DOCUMENT` `docs/EVIDENCE-CONTRACT.md` |
+| B | Persistence, privacy, sensitivity, RAW store | `SECTION_SET B` below |
+| C | Corpus, benchmark, evaluation | `FULL_DOCUMENT` `tests/corpus/README.md`, `docs/M03-R3-CLEAN-SEARCH-CORPUS.md` |
+| D | Discovery, ranking, search output | `FULL_DOCUMENT` `docs/M11-DISCOVERY-RUNTIME-SHADOW.md` |
+| E | Codex Web live shadow, Efficiency Feed | `FULL_DOCUMENT` `docs/M13-CODEX-WEB-LIVE-SHADOW.md` |
+| F | READREF, recovery, local canary | `SECTION_SET F` below; READREF remains paused without explicit authority |
+| G | Mission Context, instruction reexposure | `SECTION_SET G` below |
+| H | Architecture proposal, major mechanism | `SECTION_SET H` below plus relevant decision sections |
+| I | Historical contradiction or supersession | `SECTION_SET` matching decision IDs and referenced predecessor/superseding sections; use the decision lookup below |
+| J | Ordinary documentation-only maintenance | `FULL_DOCUMENT` target and directly linked evidence needed to verify it |
+
+Exact section sets (titles omit only the Markdown `#` prefix):
+
+```text
+B docs/ARCHITECTURE.md :: Pipeline | Sensitivity and persistence | Disk RAW store | Metadata, batching and truncation | Economics
+B docs/EVIDENCE-CONTRACT.md :: I1 — RAW immutability | I2 — Transform linkage | I3 — Byte-exact RAW recovery | I5 — Unknown defaults to RAW | I6 — Failure preservation | I7 — Authority, security and sensitivity | I13 — Source/batch identity | I16 — Audit without secret harvesting
+F docs/M15-READREF-CONTROLLED-CANARY.md :: Status and boundary | Delivery and recovery | Economics and telemetry | D1 diagnostic hardening
+F docs/M15-D1-CANARY-DIAGNOSTIC-HARDENING.md :: Tool and record contracts | Structural trace and privacy | Unchanged safety and economics | Validation and limits
+G FULL_DOCUMENT docs/M15-MISSION-CONTEXT-CONTRACT.md
+G docs/M15-S2-MISSION-CONTEXT-MANIFEST.md :: Status | Compact schema | Economics and durable record | Limits
+H docs/ARCHITECTURE.md :: Pipeline | Evidence policy and profiles | Sensitivity and persistence | Metadata, batching and truncation | Economics
+H FULL_DOCUMENT docs/EVIDENCE-CONTRACT.md
+H FULL_DOCUMENT docs/SAFE-AGGRESSIVE-FRONTIER.md
+H docs/TEST-STRATEGY.md :: Oracles | CI and portability | Limitations
+```
+
+`OPTIONAL_ON_DEMAND`: A loads the affected transform specification and test
+strategy when relevant; C loads R4/earlier M03 provenance; D loads M10 or M04;
+F loads `Historical C2 result`/M14 evidence; G loads S2 dogfood/S1 provenance;
+H loads component-specific sections. Any route loads complete files on fallback.
+Frontier inclusion is not authority.
 
 The required scenario checks map deterministically as follows: transform change
 → A; sensitive storage → B; corpus/evaluation → C; READREF canary → F; Mission
 Context → G; architecture proposal → H; supersession question → I; ordinary
 documentation edit → J.
+
+## Section protocol
+
+Headings are exact repository evidence addresses, not summaries. Locate and emit
+their bounded source bytes with the read-only helper, repeating `--heading`:
+
+```bash
+python scripts/section_working_set.py docs/ARCHITECTURE.md \
+  --heading 'Pipeline' --heading 'Economics'
+```
+
+A section starts at its heading and ends immediately before the next heading of
+the same or higher level, or EOF. Multiple ranges are emitted in document order;
+overlapping/nested ranges count once. `--measure` emits byte accounting instead
+of content.
+
+The helper returns the **complete document** and reports
+`FULL_DOCUMENT_FALLBACK` when a heading is missing, duplicated, or
+the Markdown is not valid UTF-8. Stop if the required path itself is unavailable.
+Also expand to the complete document whenever evidence crosses selected sections,
+a contradiction appears, or task scope widens. Never silently omit evidence or
+treat a successful lookup as proof/authority.
 
 ## Decision ledger lookup
 

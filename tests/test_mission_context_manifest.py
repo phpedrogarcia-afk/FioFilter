@@ -308,3 +308,31 @@ def test_m16_dogfood_manifest_is_canonical_and_payload_free() -> None:
     assert encode_manifest(manifest) == manifest_bytes
     assert b"INLINE_CRITICAL" not in manifest_bytes
     assert b"DELTA / OBJECTIVE" not in manifest_bytes
+
+
+def test_m16_pd2_dogfood_manifest_is_canonical_and_payload_free() -> None:
+    root = pathlib.Path(__file__).resolve().parents[1]
+    repository_path = "docs/M16-PD2-DOGFOOD-MANIFEST.json"
+    manifest_bytes = (root / repository_path).read_bytes()
+    manifest = parse_manifest(manifest_bytes)
+
+    attributes = subprocess.run(
+        ["git", "-C", str(root), "check-attr", "text", "eol", "--", repository_path],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+
+    assert len(manifest_bytes) == 227
+    assert manifest_bytes.endswith(b"\n")
+    assert b"\r\n" not in manifest_bytes
+    assert attributes == [
+        f"{repository_path}: text: set",
+        f"{repository_path}: eol: lf",
+    ]
+    assert manifest.mission_id == "FIOFILTER-M16-PD2-SECTION-LEVEL-WORKING-SET"
+    assert manifest.raw_bytes == 8551
+    assert encode_manifest(manifest) == manifest_bytes
+    assert b"WHOLE_DOCUMENT_ROUTE_WASTE" not in manifest_bytes
+    assert b"INLINE_CRITICAL" not in manifest_bytes
+    assert b"OBJECTIVE" not in manifest_bytes
