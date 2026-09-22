@@ -1528,3 +1528,48 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   scanner and synthetic regression tests. It does not alter canonical documents,
   route authority, Mission Context, READREF, persistence, active suppression,
   Fio Handoff, production state, or historical evidence.
+
+---
+
+## JEV-S0-D001 — Jev may be evaluated only as a bounded advisory scout
+
+- **QUESTION**: Is there a governed, low-cost exploration path for Jev to rank
+  FioFilter's deterministic routing candidates without gaining authority over
+  evidence, context delivery, policy or Codex behavior?
+- **EVIDENCE**: The project-local TypeSafe skill is present at
+  `.agents/skills/typesafe-ai/SKILL.md`; its lock identifies the expected source.
+  Current official TypeSafe documentation describes `jev-latest` as evaluating
+  one state against a map of typed Choice, Score and Noul questions, with
+  structured probabilities/confidence. The TypeSafe credential environment
+  variable was absent, so no live call or smoke result exists. PD1/PD2 already
+  produces a deterministic bounded A–J candidate universe and uses conservative
+  complete-document fallback where section addressing is uncertain.
+- **DECISION**:
+  - Record `FIOFILTER_JEV_SCOUT_V0` as a proposed, external, advisory-only
+    contract. It accepts only an explicitly NON_SENSITIVE bounded universe from
+    deterministic FioFilter logic and returns typed observations that cannot
+    alter delivery or action.
+  - Use Choice only for finite candidate route selection with a no-suggestion
+    option; use Scores only to rank supplied document/section investigation;
+    use Nouls only to surface deeper-evidence, cross-route and architecture-risk
+    uncertainty. Batch independent questions only in a separately authorized
+    future call.
+  - Pre-register a shadow comparison of PD1/PD2 with and without the advisory,
+    keeping real delivery equal to CONTROL. Require
+    `FALSE_NEGATIVE_CRITICAL=0` before any later active-routing discussion.
+  - Keep Mission Context shadow-only and READREF off/paused. Do not add a
+    runtime integration, package, router, MCP, proxy, hook, persistence path,
+    automatic model selection or suppression.
+- **WHY**: Candidate-first advisory ranking may buy investigation prioritization
+  without confusing a probabilistic model judgment with evidence, authority or
+  safe omission. The credential absence makes the least-cost truthful S0 result
+  an offline contract and pre-registered experiment.
+- **ALTERNATIVES_REJECTED**: Sending unbounded repository content; treating
+  low rank/confidence as irrelevance; asking whether context is safe to delete;
+  using Jev as a proof or policy oracle; importing an external architecture;
+  installing packages or configuration before a credential-backed experiment;
+  fabricating a live response.
+- **REVERSIBILITY**: High. This is documentation and an experimental contract
+  only. Removing it does not change the router, prompt delivery, runtime,
+  persistence, READREF, Mission Context, Codex configuration or historical
+  evidence.
