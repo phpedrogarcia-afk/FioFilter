@@ -18,6 +18,11 @@ from typing import Iterable, List, Optional, Sequence, Tuple
 
 
 _HEADING_RE = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t]*$")
+_FENCE_RE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")
+
+
+class _FenceParseError(ValueError):
+    """Markdown fence state is incomplete or cannot be safely interpreted."""
 
 
 @dataclass(frozen=True)
@@ -36,13 +41,44 @@ def _heading_records(raw: bytes) -> List[Tuple[str, int, int, int]]:
     text = raw.decode("utf-8")
     records: List[Tuple[str, int, int, int]] = []
     offset = 0
+    open_fence_character: Optional[str] = None
+    open_fence_length = 0
     for line in text.splitlines(keepends=True):
         encoded = line.encode("utf-8")
         logical = line.rstrip("\r\n")
+
+        fence = _FENCE_RE.fullmatch(logical)
+        if open_fence_character is not None:
+            if fence is not None:
+                marker = fence.group(2)
+                suffix = fence.group(3)
+                if (
+                    marker[0] == open_fence_character
+                    and len(marker) >= open_fence_length
+                    and not suffix.strip(" \t")
+                ):
+                    open_fence_character = None
+                    open_fence_length = 0
+            offset += len(encoded)
+            continue
+
+        if fence is not None:
+            marker = fence.group(2)
+            suffix = fence.group(3)
+            if marker[0] == "`" and "`" in suffix:
+                raise _FenceParseError("UNCERTAIN_FENCE_SYNTAX")
+            open_fence_character = marker[0]
+            open_fence_length = len(marker)
+            offset += len(encoded)
+            continue
+
         match = _HEADING_RE.fullmatch(logical)
         if match:
             records.append((match.group(2), len(match.group(1)), offset, 0))
         offset += len(encoded)
+
+    if open_fence_character is not None:
+        raise _FenceParseError("UNCLOSED_FENCE")
 
     complete: List[Tuple[str, int, int, int]] = []
     for index, (title, level, start, _) in enumerate(records):
@@ -77,6 +113,8 @@ def select_sections(raw: bytes, headings: Sequence[str]) -> SectionSelection:
         records = _heading_records(raw)
     except UnicodeDecodeError:
         return _fallback(raw, "INVALID_UTF8_MARKDOWN")
+    except _FenceParseError as error:
+        return _fallback(raw, str(error))
 
     ranges: List[Tuple[int, int]] = []
     for heading in headings:

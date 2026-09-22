@@ -1500,3 +1500,31 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   return to whole-document route policy. Canonical documents and all prior ledger
   bytes remain unchanged; no runtime integration, prompt suppression, READREF,
   hook, proxy, MCP, daemon, Fio Handoff bridge or production activation changed.
+
+---
+
+## M16-PD2-R2-D001 — Fenced code is not a section address
+
+- **QUESTION**: Can a heading-like line inside a fenced Markdown code block be
+  mistaken for a section selector or boundary by the section working-set helper?
+- **EVIDENCE**: The original ATX scanner matched every line beginning with one
+  to six `#` characters and did not track fenced code. Independent review found
+  the latent case. Current B/F/G/H canonical selections contain no affected
+  heading-like fence text: fence-aware recomputation remains B=10,187,
+  F=12,480, G=11,925 and H=19,885 route-document bytes; the maximum fixed
+  working set remains 31,257 bytes, with H avoiding 7,468 bytes (19.28%).
+- **DECISION**: Recognize standard backtick and tilde fences with up to three
+  leading spaces. Ignore all heading-like text while a fence is open. A closing
+  fence must use the same marker character, meet the opening marker length, and
+  have only whitespace after it. An unclosed or syntactically uncertain backtick
+  fence returns the complete document rather than granting a bounded selection.
+- **WHY**: Fenced examples are content, not evidence addresses. Fail-closed
+  parsing preserves the full canonical document whenever fence structure is not
+  sufficiently deterministic to support omission.
+- **ALTERNATIVES_REJECTED**: A full Markdown dependency; treating fenced text as
+  headings; best-effort recovery from an unclosed fence; changing route policy or
+  updating valid PD2 economics without measured evidence.
+- **REVERSIBILITY**: High. The change is confined to the read-only laboratory
+  scanner and synthetic regression tests. It does not alter canonical documents,
+  route authority, Mission Context, READREF, persistence, active suppression,
+  Fio Handoff, production state, or historical evidence.

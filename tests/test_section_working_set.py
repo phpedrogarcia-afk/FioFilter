@@ -144,6 +144,68 @@ def test_missing_or_ambiguous_heading_falls_back_to_complete_document() -> None:
     assert ambiguous.fallback_reason == "AMBIGUOUS_HEADING:A"
 
 
+def test_target_only_inside_backtick_fence_falls_back_as_missing_heading() -> None:
+    raw = b"# Root\n```text\n## Target\n```\n"
+
+    result = select_sections(raw, ("Target",))
+
+    assert result.content == raw
+    assert result.fallback_required is True
+    assert result.fallback_reason == "MISSING_HEADING:Target"
+
+
+def test_fenced_heading_does_not_truncate_real_selected_section() -> None:
+    raw = (
+        b"# Root\n## Target\nbefore\n```text\n## Not a boundary\n```\nafter\n"
+        b"## Next\nnext\n"
+    )
+
+    result = select_sections(raw, ("Target",))
+
+    assert result.fallback_required is False
+    assert result.content == b"## Target\nbefore\n```text\n## Not a boundary\n```\nafter\n"
+
+
+def test_real_and_fenced_same_title_is_not_ambiguous() -> None:
+    raw = b"# Root\n## Target\nreal\n```text\n## Target\n```\n## Next\n"
+
+    result = select_sections(raw, ("Target",))
+
+    assert result.fallback_required is False
+    assert result.content == b"## Target\nreal\n```text\n## Target\n```\n"
+
+
+def test_tilde_fence_and_standard_indentation_hide_heading_like_text() -> None:
+    raw = b"# Root\n## Target\nbefore\n   ~~~text\n## Not a boundary\n   ~~~\nafter\n## Next\n"
+
+    result = select_sections(raw, ("Target",))
+
+    assert result.fallback_required is False
+    assert result.content == (
+        b"## Target\nbefore\n   ~~~text\n## Not a boundary\n   ~~~\nafter\n"
+    )
+
+
+def test_unclosed_fence_falls_back_to_complete_document() -> None:
+    raw = b"# Root\n## Target\n```text\n## Still code\n"
+
+    result = select_sections(raw, ("Target",))
+
+    assert result.content == raw
+    assert result.fallback_required is True
+    assert result.fallback_reason == "UNCLOSED_FENCE"
+
+
+def test_uncertain_backtick_fence_syntax_falls_back_to_complete_document() -> None:
+    raw = b"# Root\n```bad`info\n## Target\n```\n"
+
+    result = select_sections(raw, ("Target",))
+
+    assert result.content == raw
+    assert result.fallback_required is True
+    assert result.fallback_reason == "UNCERTAIN_FENCE_SYNTAX"
+
+
 def test_declared_section_paths_and_headings_exist_exactly_once() -> None:
     orientation = _read("AI-START-HERE.md").decode("utf-8")
     for route, documents in SECTION_SETS.items():
