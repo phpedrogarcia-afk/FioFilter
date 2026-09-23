@@ -1,0 +1,38 @@
+{
+  "schema": "FIO_ACTIVE_CONTEXT_CONTRACT_V1",
+  "profile": "fioos",
+  "assessment": "NON_SENSITIVE",
+  "mission_id": "FIOOS-TCB-FINAL-REVIEW-AND-MAIN-GOVERNANCE-GATE-006",
+  "route": "p0-02",
+  "expected_head": "b391a315c5d3c70a6dd29381b7562b4817dff120",
+  "expected_tree": "987959da4eb46f812c8fd42cdf1308c1d4bdd37d",
+  "mission": "Review the exact TCB candidate and V2 receipt; independently determine candidate evidence readiness and the current technical protection of main. Decide whether E5 is blocking, accepted or irrelevant for this precise scope; check process-local permit bounds, D1 repair and CI binding. Recommend readiness and the smallest governance action if needed. Do not promote, merge, change authority, or modify main. Verify live remote state before treating historical observations as current. Report mission success, corrective context requests, RAW fallbacks, missed critical context, rework turns, human context rescue, verification result and available model/token metrics; do not infer causal token savings.",
+  "inline_critical_context": "Candidate ref candidate/tcb-source-identity-ledger-cas-12ef8e7-20260923, SHA 12ef8e7bf29266c07d70b63c9285903f7d7b57f5, tree 323db5b8a424104311ff13a03fd52f08142ee37d. Review branch codex/tcb-candidate-12ef8e7-review-evidence-20260923, head b391a315c5d3c70a6dd29381b7562b4817dff120, tree 987959da4eb46f812c8fd42cdf1308c1d4bdd37d. V2 receipt docs/context/reviews/TCB-CANDIDATE-12EF8E7-REVIEW.md; schema FIOOS_TCB_CANDIDATE_REVIEW_V2; content digest b8ee47f47f1ca1b1fcdf3c5990850843348005c211c5fb304648e16fc64844d9. Candidate exact-head full CI run 35930129301 PASS: 928 tests, 0 failures, 0 errors, 6 skips; review PR #12 CI run 35932363948 PASS. D1 stale lifecycle / double provider-start defect repaired by transition allowlists, SQLite BEGIN IMMEDIATE and expected-state create claim; shared-SQLite controller scope only. A0 remains enforced; no new authority. Permit scope PROCESS_LOCAL_CAPABILITY; DISTRIBUTED_ONE_USE=NOT_REQUIRED_CURRENT_MODEL. EFFECT_UNIQUENESS=SEPARATE_REQUIREMENT_NOT_PROVEN; GLOBAL_EXACTLY_ONCE=NOT_CLAIMED; EXECUTION_IDENTITY=EVIDENCE_BINDING_NOT_AUTHORITY. E5_EVIDENCE_STATUS=MISSING_EVIDENCE. Candidate review readiness READY_WITH_KNOWN_LIMITATIONS, but MAIN_PROMOTION_READINESS=NOT_READY_GOVERNANCE_GATE. Candidate != canonical main; main was 18c16df72bf5362249a587b63d0b0a03ab8e63e5 at last observation. Main technical protection UNKNOWN because prior GitHub API returned 403; independently verify current state or retain UNKNOWN. Promotion not performed; human has final promotion authority. Receipt and CI are evidence, not authority.",
+  "required_inline_facts": [
+    "12ef8e7bf29266c07d70b63c9285903f7d7b57f5",
+    "323db5b8a424104311ff13a03fd52f08142ee37d",
+    "FIOOS_TCB_CANDIDATE_REVIEW_V2",
+    "b8ee47f47f1ca1b1fcdf3c5990850843348005c211c5fb304648e16fc64844d9",
+    "928 tests, 0 failures, 0 errors, 6 skips",
+    "D1 stale lifecycle / double provider-start defect repaired",
+    "A0 remains enforced",
+    "PROCESS_LOCAL_CAPABILITY",
+    "EFFECT_UNIQUENESS=SEPARATE_REQUIREMENT_NOT_PROVEN",
+    "E5_EVIDENCE_STATUS=MISSING_EVIDENCE",
+    "Candidate != canonical main",
+    "Promotion not performed",
+    "human has final promotion authority"
+  ],
+  "delta": "Current review receipt is on the review branch, not canonical main. Use the exact candidate and review identities above. The receipt reports D1 and candidate CI evidence; it does not prove main protection. The final review must assess E5 relevance and verify the technical governance gate. No promotion or merge is authorized.",
+  "sources": [
+    {"path":"AGENTS.md","sha256":"ea5b198d563f55fd5f266fbabf5049c838b31f92277845bbe7f4a93f2ad365c5","mode":"FULL","reason":"Repository agent instructions are not section-suppressed."},
+    {"path":"AI-START-HERE.md","sha256":"dc7cd12a1e747be34258c86a3b5008baefed88ba20646a99e083970252d829b0","mode":"FULL","reason":"Bootstrap routing and authority instructions remain complete."},
+    {"path":"CONSTITUTION.md","sha256":"fc4facfd32874eb870b482bf40d58ee004582225cae8cba901a584d9981e9266","mode":"SECTIONS","headings":["2. Autoridade","4. Separação entre Inteligência e Autoridade","A0 — Observação","13. Integridade Científica"],"reason":"Explicit final-review scope: authority, A0 and evidence integrity; full constitution recoverable."},
+    {"path":"AUTONOMY.md","sha256":"2384f10dab110b9e7a24fbc5f0afcd12d3839fe03726df034033ec91390fdbff","mode":"SECTIONS","headings":["A0 — Observer","A3 — Protected Integration","Incerteza de autoridade"],"reason":"Explicit A0 and promotion-governance scope; full policy recoverable."},
+    {"path":"docs/context/CURRENT-STATE.md","sha256":"f7fb0272aefb5e61c957170da93dd1c8c8834d53c841db4bedb12207d8b39396","mode":"SECTIONS","headings":["Repository state","Authority","Current phase","Known warnings and blockers"],"reason":"Only current state and authority relevant to final review; historical details recoverable."},
+    {"path":"docs/context/GOVERNANCE-INVARIANTS.md","sha256":"7fba89d6ddbefb512ddc5c99d0f5cb8b07f8984b5fcb9a908d649d69b3f81ce4","mode":"FULL","reason":"All governance invariants remain inline."},
+    {"path":"docs/context/packs/P0-02-TCB-BYPASS.md","sha256":"4e50201119dd88f01abe995f83f6d079ba6560933a18f420a514dbb038d727d4","mode":"SECTIONS","headings":["Current state","Invariants","Implemented","Not implemented","Known failure modes","Open questions","Acceptance criteria","Abort conditions","Do not do"],"reason":"Operator-scoped TCB review sections; full pack recoverable."},
+    {"path":"docs/context/ACTIVE-QUEUE.md","sha256":"0196a5e283895f175bd93807061d257e97a7cd2bfd3d83539b7608222e07520b","mode":"FULL","reason":"Current queue and gates remain complete."},
+    {"path":"docs/context/reviews/TCB-CANDIDATE-12EF8E7-REVIEW.md","sha256":"56cce75d1ad2fd9733afe9bb2d9bc884999a34c000e0ca17684a83fd22a4cc89","mode":"FULL","reason":"Exact V2 evidence receipt is the review target; never section-suppress it."}
+  ]
+}

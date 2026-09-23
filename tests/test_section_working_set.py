@@ -293,7 +293,8 @@ def test_router_is_discoverability_only_and_ledger_remains_on_demand() -> None:
 
 def test_bootstrap_byte_count_and_historical_ledger_prefix_are_exact() -> None:
     bootstrap_bytes = len(_read("AGENTS.md")) + len(_read("AI-START-HERE.md"))
-    assert bootstrap_bytes == 11605
+    # M20 adds the explicit active-canary boundary to the routed bootstrap.
+    assert bootstrap_bytes == 12110
 
     historical_prefix_bytes = 107649
     historical_prefix_sha256 = (

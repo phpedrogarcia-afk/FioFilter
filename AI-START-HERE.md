@@ -7,7 +7,8 @@ for task-specific evidence.
 DEFAULT_BOOTSTRAP_DOCUMENTS=AGENTS.md,AI-START-HERE.md
 MISSION_CONTEXT=SHADOW_ONLY
 READREF_CANARY=OFF_PAUSED
-ACTIVE_SUPPRESSION=NO
+EXPLICIT_ACTIVE_CONTEXT_CANARY=M20_FIOOS_OPT_IN_ONLY
+AUTOMATIC_ACTIVE_SUPPRESSION=NO
 PRODUCTION_READY=NO
 FIO_HANDOFF_INTEGRATION=NO
 ```
@@ -18,6 +19,11 @@ FioFilter V0 is a Python evidence engine and deterministic, explicit laboratory.
 It classifies captured output, preserves protected evidence, stores permitted RAW
 content with integrity checks, and evaluates bounded lossless representations.
 It has no production interception path.
+
+M20 adds one operator-invoked `prepare-context` command for the exact FioOS
+final-review canary. It requires an assessed non-sensitive contract, exact Git
+and source proofs, and preserves critical facts inline. Failed selection proofs
+expand to full documents; this is not automatic routing or production use.
 
 Implemented and testable components include T01 consecutive-line folding,
 explicit `T02_RG_STANDARD_GROUP_V1` evaluation behind producer-metadata gates,
@@ -35,9 +41,10 @@ measures shadow candidates and never changes delivered prompts.
 | State | Current boundary |
 | --- | --- |
 | Active laboratory | Explicit local engine/CLI calls and deterministic tests; RAW-first defaults remain. |
+| Explicit active canary | Operator-invoked FioOS `prepare-context` package only; quality proof pending real mission. |
 | Shadow only | Codex Web observer, discovery/reexposure measurement and Mission Context measurement. Observed output is never replaced. |
 | Paused/off | READREF controlled canary. Prior canary evidence does not authorize another run. |
-| Not authorized | Active suppression, automatic context selection, automatic T02, hooks, proxy, MCP daemon, LLM classifier, Fio Handoff bridge, production integration or production-readiness claims. |
+| Not authorized | General/automatic suppression, automatic context selection, automatic T02, hooks, proxy, MCP daemon, LLM classifier, Fio Handoff bridge, production integration or production-readiness claims. |
 
 Always preserve the constitutional invariants in `AGENTS.md`. In particular,
 capability is not authority, UNKNOWN remains conservative, sensitive persistence

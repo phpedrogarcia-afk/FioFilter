@@ -24,6 +24,7 @@ from typing import List, Optional
 
 from fiofilter.v0 import FioFilterV0Lab, V0_CAPABILITY_REGISTRY, V0Config
 from fiofilter.discovery_runtime_shadow import get_worktree_state_digest_v2
+from fiofilter.active_context import ContextError, build_package
 
 
 def cmd_status(lab: FioFilterV0Lab, args: argparse.Namespace) -> int:
@@ -135,6 +136,40 @@ def cmd_run_lab_scenario(lab: FioFilterV0Lab, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_prepare_context(args: argparse.Namespace) -> int:
+    """Persist only an explicitly assessed, operator-scoped active package."""
+    if not args.persist_non_sensitive:
+        print("ERROR: explicit non-sensitive persistence consent required", file=sys.stderr)
+        return 2
+    try:
+        contract = json.loads(pathlib.Path(args.contract).read_text(encoding="utf-8"))
+        if contract.get("profile") != args.profile:
+            raise ContextError("PROFILE_MISMATCH")
+        package = build_package(pathlib.Path(args.repo_root), contract)
+        output = pathlib.Path(args.output_dir).resolve()
+        output.mkdir(parents=True, exist_ok=True)
+        payload_path = output / "active-context.md"
+        receipt_path = output / "receipt.json"
+        if payload_path.exists() or receipt_path.exists():
+            raise ContextError("OUTPUT_ALREADY_EXISTS")
+        with payload_path.open("xb") as stream:
+            stream.write(package.payload)
+        try:
+            with receipt_path.open("xb") as stream:
+                stream.write((json.dumps(package.receipt, sort_keys=True, indent=2) + "\n").encode("utf-8"))
+        except Exception:
+            payload_path.unlink()
+            raise
+    except (OSError, UnicodeError, ValueError, TypeError, KeyError) as error:
+        print(f"ERROR: {error}", file=sys.stderr)
+        return 2
+    print(json.dumps({"payload": str(payload_path), "receipt": str(receipt_path),
+                      "baseline_context_bytes": package.receipt["baseline_context_bytes"],
+                      "active_context_bytes": package.receipt["active_context_bytes"],
+                      "net_reduction_percent": package.receipt["net_reduction_percent"]}, sort_keys=True))
+    return 0
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="fiofilter",
@@ -170,11 +205,21 @@ def main(argv: Optional[List[str]] = None) -> int:
     p_lab.add_argument("--query", default="update read receipt freshness check", help="Scenario task query")
     p_lab.set_defaults(func=cmd_run_lab_scenario)
 
+    p_context = subparsers.add_parser("prepare-context", help="Build an explicit verified FioOS context package")
+    p_context.add_argument("--repo-root", required=True, help="Target repository root")
+    p_context.add_argument("--contract", required=True, help="Operator-authored JSON contract")
+    p_context.add_argument("--profile", choices=["fioos"], required=True)
+    p_context.add_argument("--output-dir", required=True, help="New output directory for package files")
+    p_context.add_argument("--persist-non-sensitive", action="store_true", help="Explicit non-sensitive persistence consent")
+    p_context.set_defaults(func=cmd_prepare_context)
+
     parsed = parser.parse_args(argv)
     if not parsed.command:
         parser.print_help()
         return 1
 
+    if parsed.command == "prepare-context":
+        return parsed.func(parsed)
     lab = FioFilterV0Lab()
     return parsed.func(lab, parsed)
 

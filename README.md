@@ -1,13 +1,14 @@
 # FioFilter
 
-**Evidence-aware context reduction for coding agents. V0 live-shadow observer; no active integration or production-readiness claim.**
+**Evidence-aware context reduction for coding agents. V0 observer plus one explicit active FioOS context canary; no automatic integration or production-readiness claim.**
 
 > AGGRESSIVE AT THE EXPLORATION BOUNDARY.
 > RIGOROUS AT THE EVIDENCE BOUNDARY.
 
-The implemented surface is a Python API that accepts already captured bytes and
-an M13 post-delivery Codex Web observation adapter. It does not intercept Codex,
-run shell commands, install hooks, change outputs, or call a model.
+The implemented surface includes a Python API for already captured bytes, an
+M13 post-delivery Codex Web observer, and an opt-in command that prepares a
+verified FioOS context package. It does not intercept Codex, install hooks,
+change tool outputs, or call a model.
 M02 hardened the engine. M03 added and independently validated an offline corpus
 method. M04 implements one lossless grouping transform for the exact validated
 `RG_STANDARD_PATH_LINE_TEXT` grammar. Automatic engine routing remains disabled
@@ -26,6 +27,24 @@ The pinned test dependency and canonical command run on Windows and Linux in
 [CI](.github/workflows/tests.yml). See [test limits](docs/TEST-STRATEGY.md).
 
 ## Current behavior
+
+For the exact M20 FioOS final-review canary, from this repository:
+
+```powershell
+python -m fiofilter prepare-context --repo-root C:\Users\phped\Documents\fioos\e7_long_duration_scale --contract examples\m20-fioos-tcb-final-review.json --profile fioos --output-dir C:\Users\phped\Documents\FioFilter-M20-Canary-20260923 --persist-non-sensitive
+```
+
+The command writes `active-context.md` (ready to pass to Codex) and a
+content-free `receipt.json`. The operator must assess the content as
+non-sensitive and explicitly opt into persistence. Use a new output directory
+for each run; existing package files are never overwritten. Its contract binds exact
+Git HEAD/tree, a repository-authored route, source SHA-256 values, critical
+inline facts and section headings. Invalid selection proofs expand to full
+source; missing sources or invalid UTF-8 abort. The original full sources are
+recoverable by path and SHA-256. The receipt's byte difference compares this
+package against the same mission and source set with complete documents, not
+provider tokens or whole-mission savings. Mission Context and READREF remain
+shadow/paused; this is not a general automatic context selector.
 
 ```python
 from fiofilter.engine import process

@@ -1616,3 +1616,36 @@ current runtime behavior; they do not retroactively change what M01 implemented.
 - **REVERSIBILITY**: High. Deleting this single ruleset restores the prior
   remote authority state. No repository runtime, persistence, transform,
   observer, canary, context-delivery, provider, or dependency behavior changed.
+
+---
+
+## M20-D001 — Explicit active FioOS package is canary-only
+
+- **QUESTION**: Can an operator use the existing FioOS route and deterministic
+  section selector to deliver a smaller, verified package for the exact TCB
+  final-review mission, without automatic selection or authority expansion?
+- **EVIDENCE**: At FioFilter base `772f4ca5e8e50366259bd5f28cc3f14cb481d8c6`,
+  656 baseline tests passed. The exact FioOS review checkout was
+  `b391a315c5d3c70a6dd29381b7562b4817dff120`, tree
+  `987959da4eb46f812c8fd42cdf1308c1d4bdd37d`. Its repository-authored
+  `p0-02` route and nine actual review/bootstrap sources give a comparable
+  full-document baseline of 70,515 context bytes. The explicit active package
+  is 43,429 bytes, including 574 recovery-reference/packaging bytes: 27,086
+  net bytes (38.4117%) are omitted. The receipt records exact file digests and
+  fallback/recovery proofs. Quality of the subsequent FioOS mission is not yet
+  measured; actual provider tokens are unavailable.
+- **DECISION**: Permit only explicit, operator-assessed `prepare-context` use
+  for this controlled FioOS canary. Keep READREF paused, Mission Context
+  shadow-only, T02 automatic routing disabled, and general activation absent.
+  Do not promote the FioOS candidate or broaden A0. The package is an input to
+  a later natural quality gate, not its PASS result.
+- **WHY**: This reuses the existing Git route and Markdown selector with a
+  small opt-in delivery bridge. Exact source identity, inline critical facts,
+  content-free receipt and full-source fallback make the chosen reduction
+  inspectable and reversible. Byte economics clear the mission's 15% threshold
+  for this one package, but behavioral quality remains UNKNOWN.
+- **ALTERNATIVES_REJECTED**: Automatic semantic routing, ranking-based hiding,
+  READREF activation, new store/server/proxy, silent prompt rewriting, and
+  treating recovery alone as permission to hide critical facts.
+- **REVERSIBILITY**: High. Stop using the explicit command and deliver the
+  contract's full sources. No FioOS repository files or authority changed.
