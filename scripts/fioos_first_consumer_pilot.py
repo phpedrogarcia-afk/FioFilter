@@ -74,6 +74,92 @@ def _source_digest_map(repo_root: Path) -> dict[str, str]:
     }
 
 
+def _summarize_receipts(receipts: list[dict[str, object]]) -> dict[str, int]:
+    """Keep scenario intent separate from outcomes reported by receipts."""
+    planned_counts = {
+        "planned_valid_cases": 0,
+        "planned_deny_cases": 0,
+        "planned_replay_cases": 0,
+    }
+    planned_keys = {
+        "VALID": "planned_valid_cases",
+        "DENY": "planned_deny_cases",
+        "REPLAY": "planned_replay_cases",
+    }
+    expected_outcomes = {
+        "VALID": "ALLOWED",
+        "DENY": "DENIED",
+        "REPLAY": "ALLOWED",
+    }
+    observed_counts = {
+        "observed_allowed_receipts": 0,
+        "observed_denied_receipts": 0,
+        "observed_unknown_receipts": 0,
+    }
+    successful_effects: set[tuple[str, str]] = set()
+    unexpected_outcomes = 0
+    authority_bypasses = 0
+
+    for item in receipts:
+        planned_case = item.get("planned_case")
+        if isinstance(planned_case, str) and planned_case in planned_keys:
+            planned_counts[planned_keys[planned_case]] += 1
+
+        request_id = item.get("request_id")
+        result_id = item.get("result_id")
+        effect_count = item.get("effect_count")
+        correlated_success = (
+            item.get("decision") == "ALLOW"
+            and item.get("status") == "SUCCEEDED"
+            and type(effect_count) is int
+            and effect_count == 1
+            and isinstance(request_id, str)
+            and bool(request_id)
+            and isinstance(result_id, str)
+            and result_id == "effect:" + request_id
+        )
+        explicit_zero_effect_denial = (
+            item.get("decision") == "DENY"
+            and item.get("status") == "DENIED"
+            and type(effect_count) is int
+            and effect_count == 0
+        )
+
+        if correlated_success:
+            outcome = "ALLOWED"
+            successful_effects.add((request_id, result_id))
+            observed_counts["observed_allowed_receipts"] += 1
+        elif explicit_zero_effect_denial:
+            outcome = "DENIED"
+            observed_counts["observed_denied_receipts"] += 1
+        else:
+            outcome = "UNKNOWN"
+            observed_counts["observed_unknown_receipts"] += 1
+
+        expected = (
+            expected_outcomes.get(planned_case)
+            if isinstance(planned_case, str)
+            else None
+        )
+        if outcome != expected:
+            unexpected_outcomes += 1
+
+        if (
+            planned_case == "DENY"
+            and type(effect_count) is int
+            and effect_count > 0
+        ):
+            authority_bypasses += 1
+
+    return {
+        **planned_counts,
+        **observed_counts,
+        "observed_unique_successful_effects": len(successful_effects),
+        "unexpected_outcomes": unexpected_outcomes,
+        "authority_bypasses": authority_bypasses,
+    }
+
+
 def run_pilot(repo_root: Path, canonical_head: str) -> dict[str, object]:
     repo_root = repo_root.resolve(strict=True)
     outbox_base = repo_root / "fioos-outbox"
@@ -152,7 +238,7 @@ def run_pilot(repo_root: Path, canonical_head: str) -> dict[str, object]:
             receipt = consumer.submit(proposal)
             receipts.append(
                 {
-                    "case": kind,
+                    "planned_case": kind,
                     "proposal_id": receipt.proposal_id,
                     "request_id": receipt.request_id,
                     "decision": receipt.decision,
@@ -162,22 +248,6 @@ def run_pilot(repo_root: Path, canonical_head: str) -> dict[str, object]:
                     "reason": receipt.reason,
                 }
             )
-            if kind == "VALID" and not (
-                receipt.decision == "ALLOW"
-                and receipt.status == "SUCCEEDED"
-                and receipt.effect_count == 1
-            ):
-                failures += 1
-            if kind == "DENY" and not (
-                receipt.decision == "DENY" and receipt.effect_count == 0
-            ):
-                failures += 1
-            if kind == "REPLAY" and not (
-                receipt.decision == "ALLOW"
-                and receipt.status == "SUCCEEDED"
-                and receipt.effect_count == 1
-            ):
-                failures += 1
 
     source_after = _source_digest_map(repo_root)
     artifact_path = outbox / "notes.jsonl"
@@ -201,22 +271,14 @@ def run_pilot(repo_root: Path, canonical_head: str) -> dict[str, object]:
     if source_before != source_after:
         failures += 1
 
-    authorized = sum(1 for item in receipts if item["case"] == "VALID")
-    denied = sum(1 for item in receipts if item["case"] == "DENY")
-    replayed = sum(1 for item in receipts if item["case"] == "REPLAY")
-    unknown = sum(1 for item in receipts if item["status"] == "UNKNOWN")
+    outcome_summary = _summarize_receipts(receipts)
+    failures += outcome_summary["unexpected_outcomes"]
     return {
         "proposals": len(cases),
-        "authorized": authorized,
-        "denied": denied,
-        "replayed": replayed,
+        **outcome_summary,
         "artifacts": len(records),
         "duplicate_artifacts": duplicates,
-        "unknown": unknown,
         "failures": failures,
-        "authority_bypasses": 0 if all(
-            item["case"] != "DENY" or item["effect_count"] == 0 for item in receipts
-        ) else 1,
         "source_files_unchanged": source_before == source_after,
         "network_or_git_calls": 0,
         "outbox": str(artifact_path),

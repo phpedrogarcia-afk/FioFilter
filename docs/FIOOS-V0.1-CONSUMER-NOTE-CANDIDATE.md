@@ -11,11 +11,16 @@ the deterministic controller policy and FioOS Runtime Gateway mediate one
 append into an isolated, Git-ignored outbox. Every item remains a proposal for
 human review.
 
-In one 15-case local pilot, five allowed proposals produced five unique,
-correlated work items; nine invalid or conflicting cases were denied; an exact
-same-instance replay returned its prior result without another record. No
-duplicate artifact or authority bypass was observed. The work items point to
-documented FioFilter uncertainties rather than copying free-form proposal text.
+The local pilot's plan contains 15 cases: five valid proposals, nine deny
+controls, and one same-request replay scenario. In the corrected receipt-based
+run, six receipts reported correlated `ALLOW`/`SUCCEEDED`, nine reported
+explicit `DENY`/`DENIED` with zero effect, and none were unknown or unexpected.
+The six successful receipts corresponded to five unique request/result pairs
+and five work-item records. The receipt schema does not distinguish a replay
+receipt from an ordinary successful receipt, so no separate observed replay
+count is claimed. No duplicate artifact or authority bypass was observed. The
+work items point to documented FioFilter uncertainties rather than copying
+free-form proposal text.
 
 This is not a production-security claim, autonomous coding, continuous
 operation, durable replay, shell/cloud execution, or permission to edit

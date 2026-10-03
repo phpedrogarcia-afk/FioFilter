@@ -24,6 +24,7 @@ from fiofilter.fioos_consumer import (
     CAPABILITY,
     OPERATION,
 )
+from scripts.fioos_first_consumer_pilot import _summarize_receipts
 
 
 HEAD = "b740b7813c50d2a05a689041c5f4cb3b761cf394"
@@ -86,6 +87,104 @@ def read_records(outbox: Path) -> list[dict[str, object]]:
     if not path.exists():
         return []
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+
+def pilot_receipt(
+    planned_case: str,
+    decision: str,
+    status: str,
+    effect_count: int | None,
+    request_id: str | None = "request-001",
+    result_id: str | None = "effect:request-001",
+) -> dict[str, object]:
+    return {
+        "planned_case": planned_case,
+        "decision": decision,
+        "status": status,
+        "effect_count": effect_count,
+        "request_id": request_id,
+        "result_id": result_id,
+    }
+
+
+def test_pilot_counters_distinguish_planned_deny_from_observed_denial() -> None:
+    summary = _summarize_receipts(
+        [pilot_receipt("DENY", "DENY", "DENIED", 0, None, None)]
+    )
+
+    assert summary["planned_deny_cases"] == 1
+    assert summary["observed_denied_receipts"] == 1
+    assert summary["observed_unknown_receipts"] == 0
+    assert summary["unexpected_outcomes"] == 0
+
+
+def test_pilot_does_not_count_unknown_deny_receipt_as_denied() -> None:
+    summary = _summarize_receipts(
+        [pilot_receipt("DENY", "DENY", "UNKNOWN", None, None, None)]
+    )
+
+    assert summary["planned_deny_cases"] == 1
+    assert summary["observed_denied_receipts"] == 0
+    assert summary["observed_unknown_receipts"] == 1
+    assert summary["unexpected_outcomes"] == 1
+
+
+def test_pilot_counts_correlated_valid_receipt_as_observed_allow_and_effect() -> None:
+    summary = _summarize_receipts(
+        [pilot_receipt("VALID", "ALLOW", "SUCCEEDED", 1)]
+    )
+
+    assert summary["planned_valid_cases"] == 1
+    assert summary["observed_allowed_receipts"] == 1
+    assert summary["observed_unique_successful_effects"] == 1
+    assert summary["observed_unknown_receipts"] == 0
+    assert summary["unexpected_outcomes"] == 0
+
+
+@pytest.mark.parametrize(
+    ("decision", "status", "effect_count", "expected_outcome"),
+    [
+        ("DENY", "DENIED", 0, "denied"),
+        ("ALLOW", "UNKNOWN", None, "unknown"),
+    ],
+)
+def test_pilot_marks_valid_scenario_with_unexpected_receipt_as_failure(
+    decision: str,
+    status: str,
+    effect_count: int | None,
+    expected_outcome: str,
+) -> None:
+    summary = _summarize_receipts(
+        [pilot_receipt("VALID", decision, status, effect_count)]
+    )
+
+    assert summary[f"observed_{expected_outcome}_receipts"] == 1
+    assert summary["unexpected_outcomes"] == 1
+
+
+def test_pilot_replay_label_is_planned_not_an_observed_receipt_outcome() -> None:
+    summary = _summarize_receipts(
+        [pilot_receipt("REPLAY", "ALLOW", "UNKNOWN", None)]
+    )
+
+    assert summary["planned_replay_cases"] == 1
+    assert summary["observed_allowed_receipts"] == 0
+    assert summary["observed_unknown_receipts"] == 1
+    assert summary["unexpected_outcomes"] == 1
+    assert "observed_replayed" not in summary
+
+
+def test_pilot_does_not_double_count_replayed_correlated_effect_receipt() -> None:
+    summary = _summarize_receipts(
+        [
+            pilot_receipt("VALID", "ALLOW", "SUCCEEDED", 1),
+            pilot_receipt("REPLAY", "ALLOW", "SUCCEEDED", 1),
+        ]
+    )
+
+    assert summary["observed_allowed_receipts"] == 2
+    assert summary["observed_unique_successful_effects"] == 1
+    assert "observed_replayed" not in summary
 
 
 @pytest.mark.parametrize("reason_code", sorted(WORK_ITEM_CATALOG))
