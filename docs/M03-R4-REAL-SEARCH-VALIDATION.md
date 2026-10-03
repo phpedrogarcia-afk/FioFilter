@@ -17,13 +17,13 @@ In accordance with project doctrine:
 
 ### Local Filesystem Investigation
 
-A bounded search was executed across `C:\Users\phped\.codex` for session ID
+A bounded search was executed across `LOCAL_PATH_REDACTED` for session ID
 `01a02f96-42a2-7a80-b8bc-6d066d0e322f`.
 
 | Entity | Path on Local Disk | Status | Size (Bytes) | SHA-256 |
 |---|---|---|---|---|
-| **Source A** | `C:\Users\phped\.codex\sessions\2026\08\23\rollout-2026-08-23T14-06-11-01a02f96-42a2-7a80-b8bc-6d066d0e322f.jsonl` | **FOUND** | `206,427,325` | `bc4561d4588a73a6889ca38d8c180ae467e51eea5f023aaba7a222425cf350a0` |
-| **Source B** | `C:\Users\phped\.codex\sessions\2026\03\08\01a02f96-42a2-7a80-b8bc-6d066d0e322f.jsonl` | **NOT FOUND** | N/A | N/A |
+| **Source A** | `LOCAL_PATH_REDACTED` | **FOUND** | `206,427,325` | `bc4561d4588a73a6889ca38d8c180ae467e51eea5f023aaba7a222425cf350a0` |
+| **Source B** | `LOCAL_PATH_REDACTED` | **NOT FOUND** | N/A | N/A |
 
 ### Provenance Resolution
 
@@ -55,7 +55,7 @@ SOURCE_PHYSICAL_RELATION=UNKNOWN
 ## 2. Real Clean Corpus Extraction
 
 Extraction was executed using `scripts/extract_rg_corpus.py` on Source A with outputs written
-outside Git under `C:\Users\phped\.fiofilter\corpus\`:
+outside Git under `LOCAL_PATH_REDACTED`:
 - Clean Candidates: `m03_rg_clean_candidates_v1.jsonl`
 - Negative Controls: `m03_rg_negative_controls_v1.jsonl`
 - Manifest: `m03_rg_manifest_v1.json`

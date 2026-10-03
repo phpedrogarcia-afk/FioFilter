@@ -22,7 +22,7 @@ In accordance with project doctrine:
 
 ## 1. Real Corpus Identity
 
-- **Corpus Path**: `C:\Users\phped\.fiofilter\corpus\m03_rg_clean_candidates_v1.jsonl`
+- **Corpus Path**: `LOCAL_PATH_REDACTED`
 - **Corpus SHA-256**: `c711a07f75f734bdbaacda35b42fa45e0075bb1c5a49f4b9c5eb7f6e396c768c`
 - **Total Candidates Replayed**: **23** (100% of admitted real clean candidates)
 - **Authorized Grammar**: `RG_STANDARD_PATH_LINE_TEXT` (all 23 entries belong to this grammar)

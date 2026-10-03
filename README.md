@@ -28,11 +28,16 @@ The pinned test dependency and canonical command run on Windows and Linux in
 
 ## Current behavior
 
-For the exact M20 FioOS final-review canary, from this repository:
+For the optional M20 FioOS final-review development canary, from this repository:
 
 ```powershell
-python -m fiofilter prepare-context --repo-root C:\Users\phped\Documents\fioos\e7_long_duration_scale --contract examples\m20-fioos-tcb-final-review.json --profile fioos --output-dir C:\Users\phped\Documents\FioFilter-M20-Canary-20260923 --persist-non-sensitive
+python -m fiofilter prepare-context --repo-root "<PATH_TO_FIOOS_REPO>" --contract examples\m20-fioos-tcb-final-review.json --profile fioos --output-dir "<OUTPUT_DIR>" --persist-non-sensitive
 ```
+
+Replace the quoted placeholders with paths on your machine. The contract file
+is included under `examples/`. This optional canary reads from a local FioOS
+checkout; that checkout is not a runtime dependency for FioFilter's public,
+pinned FioOS consumer integration.
 
 The command writes `active-context.md` (ready to pass to Codex) and a
 content-free `receipt.json`. The operator must assess the content as

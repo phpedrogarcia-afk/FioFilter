@@ -210,7 +210,7 @@ In accordance with this rule:
 
 ## 7. Audit Artifacts Produced
 
-The following deterministic artifacts were generated and persisted to `C:\Users\phped\.fiofilter\runtime-shadow\`:
+The following deterministic artifacts were generated and persisted to `LOCAL_PATH_REDACTED`:
 
 1. `m08_runtime_shadow_events_v1.jsonl`: 490 append-only SHA-256 hash-chained shadow events.
 2. `m08_runtime_shadow_checkpoint_v1.json`: Final atomic checkpoint with cursor, state snapshot, and sequence counters.

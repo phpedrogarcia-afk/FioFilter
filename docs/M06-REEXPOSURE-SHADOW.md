@@ -46,7 +46,7 @@ The M06 funnel begins at universal content repetition (1,128 calls) and systemat
 
 ## 2. Core Architecture & Models
 
-Implemented in [`fiofilter/reexposure.py`](file:///C:/Users/phped/Documents/FioFilter/fiofilter/reexposure.py):
+Implemented in [`fiofilter/reexposure.py`](../fiofilter/reexposure.py):
 
 ### A. Delivery Receipt
 Every newly observed content delivery receives an immutable session-scoped receipt:
@@ -208,7 +208,7 @@ The drop from 260.8 KB to 9.4 KB confirms the strict discipline of FioFilter:
 ## 9. Shadow Ledger & Integrity
 
 An append-only, SHA-256 hash-chained ledger was created outside Git:
-- Location: `C:\Users\phped\.fiofilter\shadow\`
+- Location: `LOCAL_PATH_REDACTED`
 - `m06_reexposure_shadow_events_v1.jsonl` (4,430 records, final hash `81d72045...`)
 - `m06_reexposure_shadow_manifest_v1.json`
 - `m06_reexposure_shadow_summary_v1.json`

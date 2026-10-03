@@ -56,14 +56,16 @@ from fiofilter.runtime_shadow import (
     classify_salience_risk,
 )
 
-SOURCE_A_DEFAULT = pathlib.Path(
-    r"C:\Users\phped\.codex\sessions\2026\08\23\rollout-2026-08-23T14-06-11-01a02f96-42a2-7a80-b8bc-6d066d0e322f.jsonl"
+SOURCE_A_DEFAULT = (
+    pathlib.Path(os.environ["FIOFILTER_SOURCE_A"]).expanduser()
+    if os.environ.get("FIOFILTER_SOURCE_A")
+    else None
 )
 EXPECTED_SHA256 = (
     "bc4561d4588a73a6889ca38d8c180ae467e51eea5f023aaba7a222425cf350a0"
 )
 EXPECTED_BYTES = 206427325
-DEFAULT_OUTPUT_DIR = pathlib.Path(r"C:\Users\phped\.fiofilter\runtime-shadow")
+DEFAULT_OUTPUT_DIR = pathlib.Path.home() / ".fiofilter" / "runtime-shadow"
 
 
 def percentile(data: List[float], p: float) -> float:
@@ -85,7 +87,8 @@ def main() -> int:
         "--session",
         type=pathlib.Path,
         default=SOURCE_A_DEFAULT,
-        help="Path to source session JSONL file",
+        required=SOURCE_A_DEFAULT is None,
+        help="Path to source session JSONL file (or set FIOFILTER_SOURCE_A)",
     )
     parser.add_argument(
         "--output-dir",

@@ -114,7 +114,7 @@ M11 operates solely via explicit programmatic invocation:
 ## 5. Shadow Ledger
 
 Append-only local JSONL ledger:
-`C:\Users\phped\.fiofilter\discovery-runtime-shadow\shadow_ledger.jsonl`
+`LOCAL_PATH_REDACTED`
 
 **Privacy**: The ledger never records the raw task query string. Only `query_hash`, `snapshot_id`, `worktree_state_digest`, candidate paths, scores, map sizes, and chained event hashes are persisted.
 
@@ -204,7 +204,7 @@ Any exception during snapshot extraction, tokenization, ranking, map formatting,
 
 ## 10. Local Artifacts
 
-Stored in `C:\Users\phped\.fiofilter\discovery-runtime-shadow\`:
+Stored in `LOCAL_PATH_REDACTED`:
 
 | File | Status | Notes |
 | :--- | :---: | :--- |

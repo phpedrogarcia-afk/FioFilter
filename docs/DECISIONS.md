@@ -582,7 +582,7 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   and/or `RG_PATH_LINE_COLUMN_TEXT` are safe, byte-exact, reproducible, and economically viable
   for lossless grouping under an M04 transform investigation?
 - **EVIDENCE**:
-  - **Artifact Provenance**: Source A exists locally at `C:\Users\phped\.codex\sessions\2026\08\23\rollout-2026-08-23T14-06-11-01a02f96-42a2-7a80-b8bc-6d066d0e322f.jsonl`
+  - **Artifact Provenance**: Source A exists locally at `LOCAL_PATH_REDACTED`
     (206,427,325 bytes, SHA-256 `bc4561d4588a73a6889ca38d8c180ae467e51eea5f023aaba7a222425cf350a0`,
     Artifact ID: `M03-ARTIFACT-SHA256-BC4561D4588A73A6`, 35,040 total records, 4,430 custom tool calls/outputs paired).
     Source B does not exist on disk (directory `2026\03` absent, no 16,076,013 B file found; inferred from UUID timestamp decoding).
@@ -657,7 +657,7 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   replay on 100% of the real historical clean candidates that authorized it,
   preserving exact byte recovery, zero false admissions, and measurable reduction?
 - **EVIDENCE**:
-  - Replayed all 23 real clean candidates from `C:\Users\phped\.fiofilter\corpus\m03_rg_clean_candidates_v1.jsonl`
+  - Replayed all 23 real clean candidates from `LOCAL_PATH_REDACTED`
     (SHA-256 `c711a07f75f734bdbaacda35b42fa45e0075bb1c5a49f4b9c5eb7f6e396c768c`).
   - Production transform produced 16 `TRANSFORMED` and 7 `RAW_NO_ECONOMIC_GAIN` (`VALID_GRAMMAR_NO_ECONOMIC_GAIN`).
     Zero safety rejections (`RAW_SAFETY_OR_GRAMMAR_REJECTION = 0`).
@@ -907,7 +907,7 @@ current runtime behavior; they do not retroactively change what M01 implemented.
 
 - **QUESTION**: Does the M10 benchmark population, leakage classification, and ranking implementation satisfy integrity requirements for an evidence-grade benchmark?
 - **EVIDENCE**:
-  - **M09 Merge-Policy Incident**: PR #8 merged with `gh pr merge 8 --squash` instead of exact fast-forward. Squash commit tree SHA matches branch head tree SHA (content preserved). Author identity violation: `ph.pedrogarcia@gmail.com` (not NOREPLY). `DO_NOT_USE_GH_PR_MERGE_FOR_EXACT_FAST_FORWARD_MISSIONS=YES`.
+  - **M09 Merge-Policy Incident**: PR #8 merged with `gh pr merge 8 --squash` instead of exact fast-forward. Squash commit tree SHA matches branch head tree SHA (content preserved). Author identity violation: `personal address redacted` (not NOREPLY). `DO_NOT_USE_GH_PR_MERGE_FOR_EXACT_FAST_FORWARD_MISSIONS=YES`.
   - **Benchmark Census Repair** (exact `git ls-tree` path matching, not basename): 19 commits total (18 main + 1 branch head). Buckets: ROOT_NO_PARENT=1, NO_PYTHON_CHANGE=3, NEW_FILE_ONLY=6, EXISTING_FILE_ONLY=5, MIXED_EXISTING_AND_NEW=4. Benchmarkable: 9. Leakage reclassified: NON_LEAKING=5, PATH_LEAKING=4 (was 7/2 in M10 original — corrected by exact tokenize_v2 stem matching).
   - **Ranking Determinism Fix**: `BM25Index.rank()` and `legacy_rank()` now sort by `(-score, path)` — stable tie-breaker, deterministic regardless of PYTHONHASHSEED or insertion order.
   - **Hash-Seed Reproducibility**: `HASH_SEED_RANKING_DETERMINISM=PASS` (seeds 1, 42, 999 produce identical rankings).

@@ -57,10 +57,12 @@ from fiofilter.structural import (
 from fiofilter.structural_python import PythonAstStructuralBackend
 
 DEFAULT_REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
-DEFAULT_SOURCE_A = pathlib.Path(
-    r"C:\Users\phped\.codex\sessions\2026\08\23\rollout-2026-08-23T14-06-11-01a02f96-42a2-7a80-b8bc-6d066d0e322f.jsonl"
+DEFAULT_SOURCE_A = (
+    pathlib.Path(os.environ["FIOFILTER_SOURCE_A"]).expanduser()
+    if os.environ.get("FIOFILTER_SOURCE_A")
+    else None
 )
-DEFAULT_OUTPUT_DIR = pathlib.Path(r"C:\Users\phped\.fiofilter\structural-shadow")
+DEFAULT_OUTPUT_DIR = pathlib.Path.home() / ".fiofilter" / "structural-shadow"
 
 
 def main() -> int:
@@ -77,7 +79,8 @@ def main() -> int:
         "--source-a",
         type=pathlib.Path,
         default=DEFAULT_SOURCE_A,
-        help="Path to historical Source A session JSONL",
+        required=DEFAULT_SOURCE_A is None,
+        help="Path to historical Source A session JSONL (or set FIOFILTER_SOURCE_A)",
     )
     parser.add_argument(
         "--output-dir",

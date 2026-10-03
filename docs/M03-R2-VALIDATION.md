@@ -6,7 +6,7 @@
 - **Reviewer ID**: `ANTIGRAVITY_M03_R2`
 - **Review Provenance**: `INDEPENDENT_REVIEW`
 - **Review Protocol**: `M03_R2_LOCAL_VALIDATION_V1`
-- **Workspace**: `C:\Users\phped\Documents\FioFilter`
+- **Workspace**: `LOCAL_PATH_REDACTED`
 - **Target Branch**: `antigravity/m03-real-corpus-frontier` (PR #2)
 - **Scientific Verdict**: `DUPLICATED_HEADERS_PARTIALLY_VALIDATED_MORE_EVIDENCE_REQUIRED`
 - **Mission Verdict**: `M03_R2_PASS_MORE_VALIDATION_REQUIRED`
@@ -32,9 +32,9 @@ observed historical artifact:
 
 | Corpus Artifact | Path | Size (Bytes) | SHA-256 |
 |---|---|---|---|
-| Sample v1 | `C:\Users\phped\.fiofilter\corpus\m03_fioos_sample_v1.jsonl` | 629,778 | `19200bd30a688cd3cf8607bae0c21cf4eece4d9ca8fd696ae81138469986b9e2` |
-| Reviewed Sidecar | `C:\Users\phped\.fiofilter\corpus\m03_fioos_sample_v1.reviewed.jsonl` | 4,769 | `ef3267784f1a603cbe31c6a2b3445582f6e5cfa69b2ff92f4477c7f9999a4e93` |
-| `M03_SOURCE_B` local artifact | `C:\Users\phped\.codex\sessions\2026\03\08\01a02f96-42a2-7a80-b8bc-6d066d0e322f.jsonl` | 16,076,013 | `d8ba8cb30d3cb3d958564b1509fa861460d3bfa9900c735a4d4a84f479a4bbcd` |
+| Sample v1 | `LOCAL_PATH_REDACTED` | 629,778 | `19200bd30a688cd3cf8607bae0c21cf4eece4d9ca8fd696ae81138469986b9e2` |
+| Reviewed Sidecar | `LOCAL_PATH_REDACTED` | 4,769 | `ef3267784f1a603cbe31c6a2b3445582f6e5cfa69b2ff92f4477c7f9999a4e93` |
+| `M03_SOURCE_B` local artifact | `LOCAL_PATH_REDACTED` | 16,076,013 | `d8ba8cb30d3cb3d958564b1509fa861460d3bfa9900c735a4d4a84f479a4bbcd` |
 
 The sample contains 50 entries totaling 442,488 raw bytes (110,622.0 estimated
 tokens). The reviewed sidecar contains non-sensitive metadata and independently
@@ -223,8 +223,8 @@ Running `scripts/run_corpus_evaluation.py` on the primary corpus with the review
 sidecar produces the following partitioned metrics:
 
 ```
-Corpus: C:\Users\phped\.fiofilter\corpus\m03_fioos_sample_v1.jsonl
-Sidecar: C:\Users\phped\.fiofilter\corpus\m03_fioos_sample_v1.reviewed.jsonl
+Corpus: LOCAL_PATH_REDACTED
+Sidecar: LOCAL_PATH_REDACTED
 Migration: M03_V3_AS_HEURISTIC
 Mode: BUILD | Profile: fioos
 
