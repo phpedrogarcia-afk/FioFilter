@@ -21,11 +21,12 @@ FioOS `RuntimeGateway` and `LocalNoteAdapter`. The adapter emits a structured
 human-review proposal into the Git-ignored `fioos-outbox`; proposals do not
 authorize implementation or modify FioFilter source.
 
-The run contained 15 scenarios: 5 authorized proposals, 9 denials, and 1 exact
-same-instance replay. It produced 5 unique artifacts, 0 duplicate artifacts,
-0 unknown outcomes, 0 failures, and 0 observed authority bypasses. No Git,
-network, cloud, or model call was made by the pilot execution; FioFilter Python
-source hashes were unchanged.
+The scenario plan contained 15 cases: 5 `VALID`, 9 `DENY`, and 1 `REPLAY`.
+The first report's `authorized`, `denied`, and `replayed` totals came from those
+scenario labels, not from classifying each receipt; they are not treated as
+observed outcome counters. The corrected receipt-based run is recorded below.
+No Git, network, cloud, or model call was made by the pilot execution;
+FioFilter Python source hashes were unchanged.
 
 - Run directory: `fioos-outbox/pilot-20261002T234252Z-0ac75286/`.
 - Output: `notes.jsonl` (5 records).
@@ -57,6 +58,25 @@ does not establish production security, continuous operation, durable replay,
 multi-user safety, autonomous coding, shell/cloud execution, or permission to
 write FioFilter `main`. Human review remains required for every proposal.
 
+## Counter semantics follow-up
+
+For `FIOFILTER-FIOOS-PR-EVIDENCE-COUNTERS-FIX-001`, the pilot now reports
+planned scenarios separately from observed receipt outcomes. On the corrected
+run at canonical FioFilter HEAD
+`b740b7813c50d2a05a689041c5f4cb3b761cf394`, the plan was 5 valid, 9 deny, and
+1 replay case. Receipts showed 6 correlated `ALLOW`/`SUCCEEDED` outcomes, 9
+explicit `DENY`/`DENIED` outcomes with zero effect, 0 unknown outcomes, and 0
+unexpected outcomes. Those six successful receipts corresponded to 5 unique
+successful request/result pairs and 5 emitted artifacts. The receipt from the
+planned `REPLAY` case carried the original pair, but replay is not a distinct
+observed outcome in the receipt schema.
+
+The receipt schema does not identify a replay as a distinct observed outcome,
+so the pilot reports `planned_replay_cases` but deliberately has no
+`observed_replayed` counter. The corrected run's ignored raw output was
+`fioos-outbox/pilot-20261003T005639Z-8ddaae28/notes.jsonl` with SHA-256
+`3059531c87fb75b50be4efce5d876a4113535bbdca7ed6f864b3bb4849cb1368`.
+
 ## Final candidate review
 
 - A Windows directory junction could previously redirect `fioos-outbox`
@@ -77,11 +97,11 @@ write FioFilter `main`. Human review remains required for every proposal.
   regression.
 - Pinned public FioOS tests: 36 passed from the exact submodule commit above.
 - FioFilter full suite: 665 passed in the candidate worktree.
-- Final bounded pilot: 15 proposals, 5 authorized, 9 denied, 1 replay; 5
-  artifacts, 0 duplicates, 0 unknown results, 0 failures, and 0 observed
-  authority bypasses. FioFilter source hashes were unchanged. Output SHA-256:
-  `bb7fe56f38d55897f7ebee6aed81c9a094df84fc86307704617e078d9bb96978`.
-  The raw pilot output is ignored and is not part of the candidate.
+- Original bounded pilot: 15 scenarios (5 `VALID`, 9 `DENY`, 1 `REPLAY`); its
+  old authorized/denied/replayed totals were scenario-derived, not observed
+  receipt classifications. The corrected run and its receipt-based counters
+  are documented above. Raw pilot outputs remain ignored and are not part of
+  the candidate.
 - The historical baseline comparison remains uncontrolled because line-ending
   behavior differed. Its three discrepancies are still `UNKNOWN`, not claimed
   as fixed by this candidate.
