@@ -46,3 +46,6 @@ MANIFEST
 
 # Conventional opt-in runtime locations (custom locations remain caller-owned)
 .fiofilter/
+
+# Finite FioOS development-consumer pilot output; never commit generated items.
+/fioos-outbox/
