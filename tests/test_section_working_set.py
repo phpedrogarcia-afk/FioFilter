@@ -71,8 +71,8 @@ SECTION_SETS = {
 ROUTE_DOCUMENT_BYTES_BEFORE = {
     "A": 7394,
     "B": 17741,
-    "C": 17899,
-    "D": 9838,
+    "C": 17741,
+    "D": 9756,
     "E": 9511,
     "F": 14209,
     "G": 13273,
@@ -84,8 +84,8 @@ ROUTE_DOCUMENT_BYTES_BEFORE = {
 ROUTE_DOCUMENT_BYTES_AFTER = {
     "A": 7394,
     "B": 10187,
-    "C": 17899,
-    "D": 9838,
+    "C": 17741,
+    "D": 9756,
     "E": 9511,
     "F": 12572,
     "G": 11925,
@@ -297,8 +297,9 @@ def test_bootstrap_byte_count_and_historical_ledger_prefix_are_exact() -> None:
     assert bootstrap_bytes == 12110
 
     historical_prefix_bytes = 107649
+    # The prefix baseline includes the public-hygiene redaction of local paths.
     historical_prefix_sha256 = (
-        "21ad8e5ce60ba73dea6ab36552f28755472684f3cdfa16ef37a4308c429af10a"
+        "3f1761ba6c07438cd900881c30cf6ec3a5e1a40cc9312c4eabea231773ab5cc2"
     )
     ledger = _read("docs/DECISIONS.md")
     assert len(ledger) >= historical_prefix_bytes

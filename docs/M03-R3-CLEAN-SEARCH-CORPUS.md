@@ -17,7 +17,7 @@ identifier `01a02f96-42a2-7a80-b8bc-6d066d0e322f`:
 | Field | Repository evidence |
 |---|---|
 | Session ID | `01a02f96-42a2-7a80-b8bc-6d066d0e322f` |
-| Reported local path | `C:\Users\phped\.codex\sessions\2026\08\23\rollout-2026-08-23T14-06-11-01a02f96-42a2-7a80-b8bc-6d066d0e322f.jsonl` |
+| Reported local path | `LOCAL_PATH_REDACTED` |
 | Filename | `rollout-2026-08-23T14-06-11-01a02f96-42a2-7a80-b8bc-6d066d0e322f.jsonl` |
 | Reported approximate size | `203,780,102` bytes |
 | SHA-256 | `UNKNOWN` |
@@ -30,7 +30,7 @@ identifier `01a02f96-42a2-7a80-b8bc-6d066d0e322f`:
 | Field | Repository evidence |
 |---|---|
 | Session ID | `01a02f96-42a2-7a80-b8bc-6d066d0e322f` |
-| Reported local path | `C:\Users\phped\.codex\sessions\2026\03\08\01a02f96-42a2-7a80-b8bc-6d066d0e322f.jsonl` |
+| Reported local path | `LOCAL_PATH_REDACTED` |
 | Filename | `01a02f96-42a2-7a80-b8bc-6d066d0e322f.jsonl` |
 | Measured size | `16,076,013` bytes |
 | SHA-256 | `d8ba8cb30d3cb3d958564b1509fa861460d3bfa9900c735a4d4a84f479a4bbcd` |

@@ -11,6 +11,7 @@ import argparse
 import base64
 import hashlib
 import json
+import os
 import math
 import pathlib
 import sys
@@ -29,14 +30,16 @@ from fiofilter.reexposure import (
     _classify_recency_bucket,
 )
 
-SOURCE_A_DEFAULT = pathlib.Path(
-    r"C:\Users\phped\.codex\sessions\2026\08\23\rollout-2026-08-23T14-06-11-01a02f96-42a2-7a80-b8bc-6d066d0e322f.jsonl"
+SOURCE_A_DEFAULT = (
+    pathlib.Path(os.environ["FIOFILTER_SOURCE_A"]).expanduser()
+    if os.environ.get("FIOFILTER_SOURCE_A")
+    else None
 )
 EXPECTED_SHA256 = (
     "bc4561d4588a73a6889ca38d8c180ae467e51eea5f023aaba7a222425cf350a0"
 )
 EXPECTED_BYTES = 206427325
-SHADOW_DIR_DEFAULT = pathlib.Path(r"C:\Users\phped\.fiofilter\shadow")
+SHADOW_DIR_DEFAULT = pathlib.Path.home() / ".fiofilter" / "shadow"
 
 
 def main() -> int:
@@ -45,7 +48,8 @@ def main() -> int:
         "--session-path",
         type=pathlib.Path,
         default=SOURCE_A_DEFAULT,
-        help="Path to historical session JSONL",
+        required=SOURCE_A_DEFAULT is None,
+        help="Path to historical session JSONL (or set FIOFILTER_SOURCE_A)",
     )
     parser.add_argument(
         "--shadow-dir",
@@ -73,7 +77,7 @@ def main() -> int:
     print(f"  Observed size:   {size:,} bytes")
     print(f"  Observed SHA256: {observed_sha256}")
 
-    if session_path == SOURCE_A_DEFAULT.resolve():
+    if SOURCE_A_DEFAULT is not None and session_path == SOURCE_A_DEFAULT.resolve():
         if observed_sha256 != EXPECTED_SHA256 or size != EXPECTED_BYTES:
             print("ERROR: Source A fingerprint verification failed!", file=sys.stderr)
             return 1

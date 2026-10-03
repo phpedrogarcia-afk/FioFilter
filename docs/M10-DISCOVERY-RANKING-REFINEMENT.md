@@ -209,7 +209,7 @@ STRUCTURAL_RELATION_STATUS = NOT_AUTHORIZED_YET
 
 ## 5. Local Artifacts
 
-Stored in `C:\Users\phped\.fiofilter\structural-shadow\`:
+Stored in `LOCAL_PATH_REDACTED`:
 
 | File | Description |
 | :--- | :--- |

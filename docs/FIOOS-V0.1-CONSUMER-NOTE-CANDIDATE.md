@@ -1,6 +1,10 @@
-# FioOS v0.1 consumer note — publication candidate
+# FioOS v0.1 consumer note — pilot evidence
 
-**Not published.** Draft for a future FioFilter review.
+**Historical candidate-era record.** This note describes the pilot before PR
+#25 was merged. PR #25 has since been merged into `main`, and post-merge CI
+passed. The exact FioOS v0.1 pin remains unchanged. This bounded experiment
+report is not a production-security claim or a replacement for the current
+consumer implementation and its tests.
 
 FioFilter experimentally uses the public
 [`phpedrogarcia-afk/fioos-core`](https://github.com/phpedrogarcia-afk/fioos-core)
@@ -25,8 +29,9 @@ free-form proposal text.
 This is not a production-security claim, autonomous coding, continuous
 operation, durable replay, shell/cloud execution, or permission to edit
 FioFilter `main`. FioOS v0.1's published local, finite, single-process limits
-remain in force. The integration candidate is local and has not been published
-or merged.
+remain in force. At the time this pilot note was written, the integration
+candidate was local and unmerged. PR #25 later merged the consumer into `main`,
+and post-merge CI passed. Human review remains required for proposals.
 
 Outbox containment rejects static redirection, but the path-based check/write
 sequence is not race-resistant against another local process that can replace

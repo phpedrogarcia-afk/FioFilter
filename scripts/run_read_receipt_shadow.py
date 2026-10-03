@@ -33,14 +33,16 @@ from fiofilter.read_receipt import (
     parse_read_command,
 )
 
-SOURCE_A_DEFAULT = pathlib.Path(
-    r"C:\Users\phped\.codex\sessions\2026\08\23\rollout-2026-08-23T14-06-11-01a02f96-42a2-7a80-b8bc-6d066d0e322f.jsonl"
+SOURCE_A_DEFAULT = (
+    pathlib.Path(os.environ["FIOFILTER_SOURCE_A"]).expanduser()
+    if os.environ.get("FIOFILTER_SOURCE_A")
+    else None
 )
 EXPECTED_SHA256 = (
     "bc4561d4588a73a6889ca38d8c180ae467e51eea5f023aaba7a222425cf350a0"
 )
 EXPECTED_BYTES = 206427325
-SHADOW_DIR_DEFAULT = pathlib.Path(r"C:\Users\phped\.fiofilter\shadow")
+SHADOW_DIR_DEFAULT = pathlib.Path.home() / ".fiofilter" / "shadow"
 
 
 def main() -> int:
@@ -51,7 +53,8 @@ def main() -> int:
         "--session",
         type=pathlib.Path,
         default=SOURCE_A_DEFAULT,
-        help="Path to session JSONL file",
+        required=SOURCE_A_DEFAULT is None,
+        help="Path to session JSONL file (or set FIOFILTER_SOURCE_A)",
     )
     parser.add_argument(
         "--output-dir",

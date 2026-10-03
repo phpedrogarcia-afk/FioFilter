@@ -19,7 +19,7 @@ Core Operating Doctrine:
 
 | Field | Measured Value |
 |---|---|
-| Local Path | `C:\Users\phped\.codex\sessions\2026\08\23\rollout-2026-08-23T14-06-11-01a02f96-42a2-7a80-b8bc-6d066d0e322f.jsonl` |
+| Local Path | `LOCAL_PATH_REDACTED` |
 | SHA-256 | `bc4561d4588a73a6889ca38d8c180ae467e51eea5f023aaba7a222425cf350a0` |
 | Size | `206,427,325` bytes |
 | Total JSONL Records | `35,040` |
@@ -168,7 +168,7 @@ $$\mathbf{NEXT\_LANE = REEXPOSURE\_SHADOW}$$
 
 ## 9. Census Output Artifacts
 
-Local laboratory census artifacts are preserved outside Git under `C:\Users\phped\.fiofilter\census\`:
+Local laboratory census artifacts are preserved outside Git under `LOCAL_PATH_REDACTED`:
 - `m05_context_waste_events_v1.jsonl` (4,430 classified event records)
 - `m05_context_waste_manifest_v1.json` (Source fingerprint and verification records)
 - `m05_context_waste_summary_v1.json` (Complete aggregate metrics)
