@@ -1649,3 +1649,49 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   treating recovery alone as permission to hide critical facts.
 - **REVERSIBILITY**: High. Stop using the explicit command and deliver the
   contract's full sources. No FioOS repository files or authority changed.
+
+---
+
+## M21-D001 — Bounded FioOS v0.1 work-item consumer pilot
+
+- **QUESTION**: Can FioFilter use the public FioOS v0.1 core to mediate one
+  useful, local work-item proposal effect without turning a proposal, identity
+  claim or self-declared `authorized` field into authority?
+- **EVIDENCE**: On FioFilter base
+  `b740b7813c50d2a05a689041c5f4cb3b761cf394`, a separate local candidate branch
+  pinned the public `phpedrogarcia-afk/fioos-core` submodule to
+  `04ea806b80995ff95b50fb0c8d232baa2148c20a`. The consumer uses the existing
+  typed proposal admission, controller-created A0 `ProjectPolicy`,
+  `RuntimeGateway` and fixed-path `LocalNoteAdapter`; it grants only
+  `fiofilter.work_item.emit` / `note.append`. Sixteen consumer integration
+  tests and eight focused tests from the pinned FioOS contract/Gateway suites
+  passed. A finite 15-proposal local pilot produced five unique human-review
+  work items, denied nine cases, replayed one identical request without a
+  second record, and observed zero duplicate artifacts, unknown outcomes,
+  failures or authority bypasses. The five items point to current documented
+  FioFilter uncertainties. The canonical-main baseline collected 665 tests
+  (662 passed, three route/byte-accounting assertions failed); the pilot
+  worktree later passed all 665. A read-only EOL comparison found the affected
+  documentation files as CRLF in the canonical checkout and LF in the pilot
+  worktree, so these runs are not a controlled same-EOL comparison and the
+  three baseline failures are not attributed to the consumer change. Exact
+  pilot output identity and test counts are recorded in the candidate evidence
+  note. GitHub CI was not run because this branch was not pushed.
+- **DECISION**: Keep this as an explicit, finite, local development experiment
+  on the candidate branch. Work items remain proposals requiring human review.
+  No canonical `main` activation, production integration, automatic context
+  selection, source edit, shell/cloud effect, push, merge or autonomy increase
+  is authorized by this result.
+- **WHY**: The public core's existing admission and fixed append Gateway path
+  are sufficient for this bounded effect. The FioFilter adapter restricts
+  persisted content to a small local catalog and repository evidence paths;
+  it does not persist the proposal's free-form objective. A controller-owned
+  policy independently grants only the one append operation. The outbox item
+  carries the observed canonical HEAD and request/result correlation.
+- **ALTERNATIVES_REJECTED**: Private FioOS laboratory dependency, vendored
+  source, a custom effect path, arbitrary proposal text/path persistence,
+  direct file writes outside the Gateway, continuous automation, and treating
+  a proposal or identity claim as approval.
+- **REVERSIBILITY**: High. This local branch can be discarded without changing
+  FioFilter `main`; generated pilot output is Git-ignored. No FioOS source,
+  FioFilter canonical state, FioIdeias, ProjetoFio or cloud resource changed.

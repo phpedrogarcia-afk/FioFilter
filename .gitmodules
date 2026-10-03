@@ -1,0 +1,3 @@
+[submodule "vendor/fioos-core"]
+	path = vendor/fioos-core
+	url = https://github.com/phpedrogarcia-afk/fioos-core.git
