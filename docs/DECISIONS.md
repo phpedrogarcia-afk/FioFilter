@@ -1695,3 +1695,71 @@ current runtime behavior; they do not retroactively change what M01 implemented.
 - **REVERSIBILITY**: High. This local branch can be discarded without changing
   FioFilter `main`; generated pilot output is Git-ignored. No FioOS source,
   FioFilter canonical state, FioIdeias, ProjetoFio or cloud resource changed.
+
+---
+
+## M22-SKILL-D001 — Explicit repository-local task-context Skill
+
+- **QUESTION**: Can FioFilter expose a useful Codex task-context capability
+  without adding another runtime, changing task delivery, or treating ranked
+  paths as evidence?
+- **EVIDENCE**: Prototype source at
+  79c1f39c8fede944448d4bc5c88711a978b111d4 already contained a repository-local
+  Skill wrapper around discovery-shadow and recorded 53 focused discovery tests
+  passing. Its real Codex invocation was blocked before model start, so native
+  invocation remained unverified. On clean base
+  05371cced56259e9e26276e4e1594c4e1d04a6c0, one pre-change discovery-shadow
+  query returned a 948-byte map over 94 Python files and included false leads
+  from Codex Web, M15 canary, and FioOS scripts. The existing task router, M11
+  contract, and section-working-set helper provide canonical source retrieval
+  and conservative fallback.
+- **DECISION**: Add an explicit-only native Codex Skill at
+  .agents/skills/fiofilter-task-context/. It returns an inline map with
+  candidate rationale, uncertainty, and exact recovery references. Keep
+  discovery-shadow advisory and preserve all sources, task delivery, and
+  required route evidence. Record native invocation, actual token use, and
+  cross-repository portability as NOT_PROVEN until exercised in an authorized
+  Codex session.
+- **WHY**: Codex's existing Skill loader and FioFilter's existing discovery and
+  section-retrieval mechanisms are the smallest useful combination. The
+  observed Python-only index produced several irrelevant leads and omitted
+  Markdown governance, so route requirements and direct source verification
+  must override ranking.
+- **ALTERNATIVES_REJECTED**: A new runtime, plugin framework, persisted memory
+  store, index or hook; automatic context selection or prompt rewriting;
+  treating candidate scores as evidence; inferring token savings from map bytes.
+- **REVERSIBILITY**: High. Remove the Skill, its static contract test, this
+  evidence note, and this decision. No FioFilter runtime, global Codex setting,
+  FioOS consumer, main branch, or remote branch is changed.
+
+---
+
+## M22-SKILL-D002 — Experimental Skill publication candidate
+
+- **QUESTION**: Is the unpublished, explicit-only task-context Skill ready for
+  human publication review without a new engine or token-economy benchmark?
+- **EVIDENCE**: The native FioFilter invocation and FioHandoff navigation are
+  reported by the subsequent mission; the FioHandoff native invocation and
+  causal token savings remain unproven. The intermediate wrong-NOREPLY commit
+  `7769c24de6b7bc5f79bc5bafee76b3b097fdfe40` was replaced locally by
+  `553b28bdaa6bdefec56aa9a52c864c8fd5889643`, and descendant
+  `aa9d7e99a9baebc1caf7c0042287a26d47238b6a` by
+  `b7aa193fd1df19fb778518c86296393ebb94da2b`. The old and rewritten tip
+  trees are identical. The installed Skill validator, 56 focused tests, and
+  668 full-suite tests passed under the conditions recorded in
+  `docs/FIOFILTER-SKILL-REAL-USE-V1.md`.
+- **DECISION**: Keep the Skill as an explicit-use experimental publication
+  candidate for human review. Correct its index-persistence wording and retain
+  advisory discovery, exact recovery references, conservative uncertainty, and
+  honest limitations. Do not push, open a PR, or merge in this mission.
+- **WHY**: Existing Codex Skill loading and FioFilter navigation provide useful
+  behavior without a new runtime. The identity repair removes a known
+  publication blocker, while the unchanged rewrite tree rules out accidental
+  source changes from that repair.
+- **ALTERNATIVES_REJECTED**: New selector, daemon, MCP, proxy, global cache,
+  automatic context suppression, mandatory A/B economics before experimental
+  availability, and treating map bytes as token savings.
+- **REVERSIBILITY**: High. The branch remains local and unpublished; the old
+  head is preserved at
+  `refs/backup/fiofilter-skill-real-use-v1-before-noreply-fix`. Main and the
+  FioOS consumer are unchanged.
