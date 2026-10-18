@@ -1763,3 +1763,36 @@ current runtime behavior; they do not retroactively change what M01 implemented.
   head is preserved at
   `refs/backup/fiofilter-skill-real-use-v1-before-noreply-fix`. Main and the
   FioOS consumer are unchanged.
+
+---
+
+## M22-SKILL-D003 — Public evidence boundary for PR #27 — qualifies M22-SKILL-D002
+
+- **QUESTION**: What can reviewers verify from the published Skill history
+  without exposing the earlier local commits or backup ref?
+- **EVIDENCE**: The four local commit IDs and backup ref cited above record a
+  historical identity repair, but are not reachable from the clean branch in
+  PR #27. Their identity-only rewrite and old-tip tree equivalence were checked
+  locally; a public clone cannot independently reproduce those checks. The
+  publicly reachable [base commit](https://github.com/phpedrogarcia-afk/FioFilter/commit/05371cced56259e9e26276e4e1594c4e1d04a6c0),
+  [initial clean commit](https://github.com/phpedrogarcia-afk/FioFilter/commit/f270fa746f46cf7ed53506ff7db79ea5a9e21b77),
+  and [PR #27 file diff](https://github.com/phpedrogarcia-afk/FioFilter/pull/27/files)
+  provide the reviewable publication evidence. The clean commit has the base
+  as its parent and tree `3b3f687101fe58e846dc518ddb826259d2dec6d9`;
+  `git diff 05371cced56259e9e26276e4e1594c4e1d04a6c0 f270fa746f46cf7ed53506ff7db79ea5a9e21b77`
+  reproduces its fixed source delta after fetching those public commits.
+- **DECISION**: Preserve M22-SKILL-D002 and its evidence note as historical
+  local observations, not public proof. Do not use the unpublishable rewrite
+  objects or their asserted equivalence as a public publication-readiness
+  gate. Review the public commits, PR diff, and CI for the exact PR head instead.
+  The earlier 56 focused and 668 full-suite test outcomes and reported native
+  invocation are local historical evidence, distinct from visible GitHub CI.
+- **WHY**: Public reviewers can reproduce the published content and lineage
+  without publishing objects that may contain private local paths or silently
+  upgrading local observations into public evidence.
+- **ALTERNATIVES_REJECTED**: Publishing the old branch, commits, backup ref, or
+  potentially contaminated objects; deleting or rewriting historical records;
+  claiming a public clone verifies unavailable local rewrites.
+- **REVERSIBILITY**: This is a documentary qualification only. It changes no
+  Skill, runtime, test, FioOS consumer, or activation authority; later public
+  evidence may supersede it explicitly.
