@@ -1695,3 +1695,104 @@ current runtime behavior; they do not retroactively change what M01 implemented.
 - **REVERSIBILITY**: High. This local branch can be discarded without changing
   FioFilter `main`; generated pilot output is Git-ignored. No FioOS source,
   FioFilter canonical state, FioIdeias, ProjetoFio or cloud resource changed.
+
+---
+
+## M22-SKILL-D001 — Explicit repository-local task-context Skill
+
+- **QUESTION**: Can FioFilter expose a useful Codex task-context capability
+  without adding another runtime, changing task delivery, or treating ranked
+  paths as evidence?
+- **EVIDENCE**: Prototype source at
+  79c1f39c8fede944448d4bc5c88711a978b111d4 already contained a repository-local
+  Skill wrapper around discovery-shadow and recorded 53 focused discovery tests
+  passing. Its real Codex invocation was blocked before model start, so native
+  invocation remained unverified. On clean base
+  05371cced56259e9e26276e4e1594c4e1d04a6c0, one pre-change discovery-shadow
+  query returned a 948-byte map over 94 Python files and included false leads
+  from Codex Web, M15 canary, and FioOS scripts. The existing task router, M11
+  contract, and section-working-set helper provide canonical source retrieval
+  and conservative fallback.
+- **DECISION**: Add an explicit-only native Codex Skill at
+  .agents/skills/fiofilter-task-context/. It returns an inline map with
+  candidate rationale, uncertainty, and exact recovery references. Keep
+  discovery-shadow advisory and preserve all sources, task delivery, and
+  required route evidence. Record native invocation, actual token use, and
+  cross-repository portability as NOT_PROVEN until exercised in an authorized
+  Codex session.
+- **WHY**: Codex's existing Skill loader and FioFilter's existing discovery and
+  section-retrieval mechanisms are the smallest useful combination. The
+  observed Python-only index produced several irrelevant leads and omitted
+  Markdown governance, so route requirements and direct source verification
+  must override ranking.
+- **ALTERNATIVES_REJECTED**: A new runtime, plugin framework, persisted memory
+  store, index or hook; automatic context selection or prompt rewriting;
+  treating candidate scores as evidence; inferring token savings from map bytes.
+- **REVERSIBILITY**: High. Remove the Skill, its static contract test, this
+  evidence note, and this decision. No FioFilter runtime, global Codex setting,
+  FioOS consumer, main branch, or remote branch is changed.
+
+---
+
+## M22-SKILL-D002 — Experimental Skill publication candidate
+
+- **QUESTION**: Is the unpublished, explicit-only task-context Skill ready for
+  human publication review without a new engine or token-economy benchmark?
+- **EVIDENCE**: The native FioFilter invocation and FioHandoff navigation are
+  reported by the subsequent mission; the FioHandoff native invocation and
+  causal token savings remain unproven. The intermediate wrong-NOREPLY commit
+  `7769c24de6b7bc5f79bc5bafee76b3b097fdfe40` was replaced locally by
+  `553b28bdaa6bdefec56aa9a52c864c8fd5889643`, and descendant
+  `aa9d7e99a9baebc1caf7c0042287a26d47238b6a` by
+  `b7aa193fd1df19fb778518c86296393ebb94da2b`. The old and rewritten tip
+  trees are identical. The installed Skill validator, 56 focused tests, and
+  668 full-suite tests passed under the conditions recorded in
+  `docs/FIOFILTER-SKILL-REAL-USE-V1.md`.
+- **DECISION**: Keep the Skill as an explicit-use experimental publication
+  candidate for human review. Correct its index-persistence wording and retain
+  advisory discovery, exact recovery references, conservative uncertainty, and
+  honest limitations. Do not push, open a PR, or merge in this mission.
+- **WHY**: Existing Codex Skill loading and FioFilter navigation provide useful
+  behavior without a new runtime. The identity repair removes a known
+  publication blocker, while the unchanged rewrite tree rules out accidental
+  source changes from that repair.
+- **ALTERNATIVES_REJECTED**: New selector, daemon, MCP, proxy, global cache,
+  automatic context suppression, mandatory A/B economics before experimental
+  availability, and treating map bytes as token savings.
+- **REVERSIBILITY**: High. The branch remains local and unpublished; the old
+  head is preserved at
+  `refs/backup/fiofilter-skill-real-use-v1-before-noreply-fix`. Main and the
+  FioOS consumer are unchanged.
+
+---
+
+## M22-SKILL-D003 — Public evidence boundary for PR #27 — qualifies M22-SKILL-D002
+
+- **QUESTION**: What can reviewers verify from the published Skill history
+  without exposing the earlier local commits or backup ref?
+- **EVIDENCE**: The four local commit IDs and backup ref cited above record a
+  historical identity repair, but are not reachable from the clean branch in
+  PR #27. Their identity-only rewrite and old-tip tree equivalence were checked
+  locally; a public clone cannot independently reproduce those checks. The
+  publicly reachable [base commit](https://github.com/phpedrogarcia-afk/FioFilter/commit/05371cced56259e9e26276e4e1594c4e1d04a6c0),
+  [initial clean commit](https://github.com/phpedrogarcia-afk/FioFilter/commit/f270fa746f46cf7ed53506ff7db79ea5a9e21b77),
+  and [PR #27 file diff](https://github.com/phpedrogarcia-afk/FioFilter/pull/27/files)
+  provide the reviewable publication evidence. The clean commit has the base
+  as its parent and tree `3b3f687101fe58e846dc518ddb826259d2dec6d9`;
+  `git diff 05371cced56259e9e26276e4e1594c4e1d04a6c0 f270fa746f46cf7ed53506ff7db79ea5a9e21b77`
+  reproduces its fixed source delta after fetching those public commits.
+- **DECISION**: Preserve M22-SKILL-D002 and its evidence note as historical
+  local observations, not public proof. Do not use the unpublishable rewrite
+  objects or their asserted equivalence as a public publication-readiness
+  gate. Review the public commits, PR diff, and CI for the exact PR head instead.
+  The earlier 56 focused and 668 full-suite test outcomes and reported native
+  invocation are local historical evidence, distinct from visible GitHub CI.
+- **WHY**: Public reviewers can reproduce the published content and lineage
+  without publishing objects that may contain private local paths or silently
+  upgrading local observations into public evidence.
+- **ALTERNATIVES_REJECTED**: Publishing the old branch, commits, backup ref, or
+  potentially contaminated objects; deleting or rewriting historical records;
+  claiming a public clone verifies unavailable local rewrites.
+- **REVERSIBILITY**: This is a documentary qualification only. It changes no
+  Skill, runtime, test, FioOS consumer, or activation authority; later public
+  evidence may supersede it explicitly.
